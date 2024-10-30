@@ -1,0 +1,22 @@
+﻿name: Fly Deploy
+on: [push]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create secrets file
+        run: |
+          touch secrets.txt
+          echo -e "${{secrets.BOT_TOKEN}}" >> secrets.txt
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+    
+      - name: Deploy
+        run: flyctl deploy --detach
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
