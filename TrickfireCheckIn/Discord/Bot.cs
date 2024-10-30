@@ -199,7 +199,7 @@ namespace TrickfireCheckIn.Discord
 
             return new DiscordMessageBuilder()
                 .AddComponents(new DiscordButtonComponent(
-                    DiscordButtonStyle.Primary,
+                    DiscordButtonStyle.Success,
                     "CheckInOutButton",
                     "Check In or Out"
                 ))
