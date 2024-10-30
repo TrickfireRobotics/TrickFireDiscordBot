@@ -2,6 +2,7 @@
 using DSharpPlus.Commands;
 using DSharpPlus.Commands.Processors.SlashCommands;
 using DSharpPlus.Entities;
+using DSharpPlus.EventArgs;
 using DSharpPlus.Exceptions;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
@@ -34,12 +35,26 @@ namespace TrickfireCheckIn.Discord
                     // Add our commands from our code (anything with the command
                     // decorator)
                     extension.AddCommands(Assembly.GetExecutingAssembly());
+                })
+                .ConfigureEventHandlers(events =>
+                {
+                    events.HandleComponentInteractionCreated(OnComponentInteraction);
                 });
          
             Client = builder.Build();
 
             // Subscribe to updates of member list
             State.Members.CollectionChanged += (_, _) => { _needToUpdateEmbed = true; };
+        }
+
+        private static Task OnComponentInteraction(DiscordClient _, ComponentInteractionCreatedEventArgs e)
+        {
+            if (e.Id != "CheckInOutButton")
+            {
+                return Task.CompletedTask;
+            }
+
+            return Commands.CheckInOutInternal(e.Interaction);
         }
 
         /// <summary>
@@ -120,7 +135,7 @@ namespace TrickfireCheckIn.Discord
         /// </summary>
         private async Task UpdateListMessage()
         {
-            DiscordEmbed listEmbed = CreateEmbed();
+            DiscordMessageBuilder builder = CreateMessage();
 
             // Check if message exists
             DiscordGuild tfGuild = await Client.GetGuildAsync(Config.Instance.TrickfireGuild);
@@ -138,7 +153,7 @@ namespace TrickfireCheckIn.Discord
             {
                 // If it does, update it
                 DiscordMessage message = await channel.GetMessageAsync(Config.Instance.ListMessage);
-                await message.ModifyAsync(listEmbed);
+                await message.ModifyAsync(builder);
             }
             catch (DiscordException ex)
             {
@@ -147,7 +162,7 @@ namespace TrickfireCheckIn.Discord
                     return;
                 }
                 // If not, update the config with the new message
-                Config.Instance.ListMessage = (await channel.SendMessageAsync(listEmbed)).Id;
+                Config.Instance.ListMessage = (await channel.SendMessageAsync(builder)).Id;
                 Config.Instance.SaveConfig();
             }
 
@@ -157,10 +172,10 @@ namespace TrickfireCheckIn.Discord
         /// Returns an embed listing the members in <see cref="Config.Members"/>.
         /// </summary>
         /// <returns>An embed listing the checked in members</returns>
-        private static DiscordEmbed CreateEmbed()
+        private static DiscordMessageBuilder CreateMessage()
         {
             // Create embed without members
-            DiscordEmbedBuilder builder = new DiscordEmbedBuilder()
+            DiscordEmbedBuilder embed = new DiscordEmbedBuilder()
                 .WithTitle("Members in the Shop")
                 .WithFooter("Made by Kyler 😎")
                 .WithTimestamp(DateTime.Now)
@@ -168,7 +183,7 @@ namespace TrickfireCheckIn.Discord
 
             StringBuilder sb = new(
                 "A list of members currently in the shop (INV-011), kept up to date.\n" +
-                "Check in or out using the `/CheckInOut` command!\n\n"
+                "Check in or out using the button or `/checkinout` command!\n\n"
             );
 
             // Add members to description string
@@ -180,9 +195,15 @@ namespace TrickfireCheckIn.Discord
             }
 
             // Add description
-            builder.WithDescription(sb.ToString());
+            embed.WithDescription(sb.ToString());
 
-            return builder.Build();
+            return new DiscordMessageBuilder()
+                .AddComponents(new DiscordButtonComponent(
+                    DiscordButtonStyle.Primary,
+                    "CheckInOutButton",
+                    "Check In or Out"
+                ))
+                .AddEmbed(embed.Build());
         }
     }
 }

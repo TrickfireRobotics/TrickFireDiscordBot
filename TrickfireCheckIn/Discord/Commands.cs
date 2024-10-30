@@ -4,6 +4,7 @@ using DSharpPlus.Commands.Processors.SlashCommands;
 using DSharpPlus.Commands.Processors.SlashCommands.Metadata;
 using DSharpPlus.Entities;
 using DSharpPlus.Exceptions;
+using System;
 using System.ComponentModel;
 
 namespace TrickfireCheckIn.Discord
@@ -69,11 +70,16 @@ namespace TrickfireCheckIn.Discord
         [Command("checkinout")]
         [Description("Checks you into/out of the shop and updates the member list")]
         [InteractionAllowedContexts(DiscordInteractionContextType.Guild)]
-        public static ValueTask CheckInOut(SlashCommandContext context)
+        public static Task CheckInOut(SlashCommandContext context)
+        {
+            return CheckInOutInternal(context.Interaction);
+        }
+
+        internal static Task CheckInOutInternal(DiscordInteraction interaction)
         {
             // Member is not since this command cannot be called outside of
             // guilds
-            DiscordMember member = context.Member!;
+            DiscordMember member = (interaction.User as DiscordMember)!;
 
             // Find index of member in list
             int memberIndex = -1;
@@ -89,7 +95,7 @@ namespace TrickfireCheckIn.Discord
             // Update member list
             if (memberIndex == -1)
             {
-                State.Members.Add((member, context.Interaction.CreationTimestamp));
+                State.Members.Add((member, interaction.CreationTimestamp));
             }
             else
             {
@@ -97,14 +103,19 @@ namespace TrickfireCheckIn.Discord
             }
 
             // Send confirmation response
+            DiscordInteractionResponseBuilder builder = new() { IsEphemeral = true };
             if (memberIndex == -1)
             {
-                return context.RespondAsync("Checked in. " + GetCheckInMessage(), true);
+                builder.WithContent("Checked in. " + GetCheckInMessage());
             }
             else
             {
-                return context.RespondAsync($"Checked out. " + GetCheckOutMessage(), true);
+                builder.WithContent($"Checked out. " + GetCheckOutMessage());
             }
+            return interaction.CreateResponseAsync(
+                DiscordInteractionResponseType.ChannelMessageWithSource,
+                builder
+            );
         }
 
         // Make a fake weighted random using range checking
