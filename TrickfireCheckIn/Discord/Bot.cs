@@ -16,6 +16,17 @@ namespace TrickfireCheckIn.Discord
     /// <param name="token">The token of the bot</param>
     public class Bot
     {
+        private const string SadCatASCII =
+            "　　　　   ／＞----フ\r\n" +
+            "　　　　 　|　\\_  \\_ l\r\n" +
+            "　 　　　／` ミ＿xノ　\r\n" +
+            "　　　　/　　　　 |\r\n" +
+            "　　　 /　ヽ　   ﾉ\r\n" +
+            "　　　│　　|　|　|\r\n" +
+            "　／￣|　　 |　|　|\r\n" +
+            "　| (￣ヽ＿\\_ヽ\\_)\\_\\_)\r\n" +
+            "　＼二つ";
+
         /// <summary>
         /// The client associated with the bot.
         /// </summary>
@@ -192,6 +203,12 @@ namespace TrickfireCheckIn.Discord
                 (DiscordMember member, DateTimeOffset time) = State.Members[i];
 
                 sb.AppendLine($"{member.Mention} ({Formatter.Timestamp(time, TimestampFormat.ShortTime)})");
+            }
+            
+            // Sad no members message :(
+            if (State.Members.Count == 0)
+            {
+                sb.AppendLine("No ones in the shop :(\n" + SadCatASCII);
             }
 
             // Add description
