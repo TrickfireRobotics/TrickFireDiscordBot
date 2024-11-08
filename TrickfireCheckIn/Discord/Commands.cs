@@ -75,8 +75,10 @@ namespace TrickfireCheckIn.Discord
             return CheckInOutInternal(context.Interaction);
         }
 
-        internal static Task CheckInOutInternal(DiscordInteraction interaction)
+        internal static async Task CheckInOutInternal(DiscordInteraction interaction)
         {
+            await interaction.DeferAsync(true);
+
             // Member is not since this command cannot be called outside of
             // guilds
             DiscordMember member = (interaction.User as DiscordMember)!;
@@ -103,7 +105,7 @@ namespace TrickfireCheckIn.Discord
             }
 
             // Send confirmation response
-            DiscordInteractionResponseBuilder builder = new() { IsEphemeral = true };
+            DiscordFollowupMessageBuilder builder = new() { IsEphemeral = true };
             if (memberIndex == -1)
             {
                 builder.WithContent("Checked in. " + GetCheckInMessage());
@@ -112,10 +114,7 @@ namespace TrickfireCheckIn.Discord
             {
                 builder.WithContent($"Checked out. " + GetCheckOutMessage());
             }
-            return interaction.CreateResponseAsync(
-                DiscordInteractionResponseType.ChannelMessageWithSource,
-                builder
-            );
+            await interaction.CreateFollowupMessageAsync(builder);
         }
 
         // Make a fake weighted random using range checking
