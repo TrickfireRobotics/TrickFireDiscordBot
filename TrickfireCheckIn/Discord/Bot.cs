@@ -38,6 +38,12 @@ namespace TrickfireCheckIn.Discord
         {
             DiscordClientBuilder builder = DiscordClientBuilder
                 .CreateDefault(token, DiscordIntents.AllUnprivileged)
+                .ConfigureExtraFeatures((conf) =>
+                {
+                    conf.AbsoluteMessageCacheExpiration = TimeSpan.FromMinutes(5);
+                    conf.SlidingMessageCacheExpiration = TimeSpan.FromMinutes(1);
+                    conf.AlwaysCacheMembers = false;
+                })
                 .UseCommands((_, extension) =>
                 {
                     // Configure to slash commands
