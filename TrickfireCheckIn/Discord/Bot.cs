@@ -55,23 +55,27 @@ namespace TrickfireCheckIn.Discord
             Client = builder.Build();
 
             // Subscribe to updates of member list
+            object lock_ = new();
             State.Members.CollectionChanged += (_, ev) => 
             { 
-                _needToUpdateEmbed = true;
+                lock(lock_)
+                {
+                    _needToUpdateEmbed = true;
 
-                IEnumerable<string> oldItems = (ev.OldItems ?? new List<string>())
-                    .Cast<(DiscordMember, DateTimeOffset)>()
-                    .Select(val => val.Item1.DisplayName);
+                    IEnumerable<string> oldItems = (ev.OldItems ?? new List<string>())
+                        .Cast<(DiscordMember, DateTimeOffset)>()
+                        .Select(val => val.Item1.DisplayName);
 
-                IEnumerable<string> newItems = (ev.NewItems ?? new List<string>())
-                    .Cast<(DiscordMember, DateTimeOffset)>()
-                    .Select(val => val.Item1.DisplayName);
+                    IEnumerable<string> newItems = (ev.NewItems ?? new List<string>())
+                        .Cast<(DiscordMember, DateTimeOffset)>()
+                        .Select(val => val.Item1.DisplayName);
 
-                Client.Logger.LogInformation(
-                    "Member collection changed: {}\nOld items: {}\nNew items: {}",
-                    ev.Action.ToString(),
-                    string.Join(", ", oldItems),
-                    string.Join(", ", newItems));
+                    Client.Logger.LogInformation(
+                        "Member collection changed: {}\nOld items: {}\nNew items: {}",
+                        ev.Action.ToString(),
+                        string.Join(", ", oldItems),
+                        string.Join(", ", newItems));
+                }
             };
         }
 
