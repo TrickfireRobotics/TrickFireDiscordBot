@@ -37,7 +37,7 @@ namespace TrickfireCheckIn.Discord
         public Bot(string token)
         {
             DiscordClientBuilder builder = DiscordClientBuilder
-                .CreateDefault(token, DiscordIntents.AllUnprivileged)
+                .CreateDefault(token, DiscordIntents.None)
                 .ConfigureExtraFeatures((conf) =>
                 {
                     conf.AbsoluteMessageCacheExpiration = TimeSpan.FromMinutes(5);
