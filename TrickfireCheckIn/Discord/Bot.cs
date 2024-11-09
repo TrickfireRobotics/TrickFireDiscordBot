@@ -68,11 +68,10 @@ namespace TrickfireCheckIn.Discord
                     .Select(val => val.Item1.DisplayName);
 
                 Client.Logger.LogInformation(
-                    "Member collection changed: {}\nOld items: {}\nNew items: {}\nTrace: {}",
+                    "Member collection changed: {}\nOld items: {}\nNew items: {}",
                     ev.Action.ToString(),
                     string.Join(", ", oldItems),
-                    string.Join(", ", newItems),
-                    new System.Diagnostics.StackTrace());
+                    string.Join(", ", newItems));
             };
         }
 
