@@ -4,7 +4,6 @@ using DSharpPlus.Commands.Processors.SlashCommands;
 using DSharpPlus.Commands.Processors.SlashCommands.Metadata;
 using DSharpPlus.Entities;
 using DSharpPlus.Exceptions;
-using System;
 using System.ComponentModel;
 
 namespace TrickfireCheckIn.Discord
