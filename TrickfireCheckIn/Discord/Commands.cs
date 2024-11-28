@@ -18,7 +18,7 @@ namespace TrickfireCheckIn.Discord
         [Command("setcheckinchannel")]
         [Description("Sets the channel the bot sends the checkin message to")]
         [InteractionAllowedContexts(DiscordInteractionContextType.Guild)]
-        [RequirePermissions(DiscordPermissions.None, DiscordPermissions.ManageGuild)]
+        [RequirePermissions([], [DiscordPermission.ManageGuild])]
         public static async Task SetCheckInChannel(
             SlashCommandContext context, 
             [Parameter("channel")]
@@ -27,12 +27,12 @@ namespace TrickfireCheckIn.Discord
         ) {
             // Guild is not null because it cannot be called outsides guilds
             DiscordPermissions permissions = channel.PermissionsFor(context.Guild!.CurrentMember);
-            if (!permissions.HasPermission(DiscordPermissions.SendMessages | DiscordPermissions.AccessChannels))
+            if (!permissions.HasPermission(DiscordPermission.SendMessages | DiscordPermission.ViewChannel))
             {
                 await context.RespondAsync("Bot does not have permission to send messages in that channel");
                 return;
             }
-            else if (!permissions.HasPermission(DiscordPermissions.ReadMessageHistory))
+            else if (!permissions.HasPermission(DiscordPermission.ReadMessageHistory))
 
             // Delete old message
             try
