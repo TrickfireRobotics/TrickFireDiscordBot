@@ -1,7 +1,7 @@
 ﻿using DSharpPlus.Entities;
 using System.Collections.ObjectModel;
 
-namespace TrickfireCheckIn.Discord
+namespace TrickFireDiscordBot.Discord
 {
     /// <summary>
     /// A class that represents the state of the bot.

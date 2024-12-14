@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 using System.Reflection;
 using System.Text;
 
-namespace TrickfireCheckIn.Discord
+namespace TrickFireDiscordBot.Discord
 {
     /// <summary>
     /// A class representing the Discord bot.

@@ -1,4 +1,4 @@
-﻿# TrickfireCheckIn
+﻿# TrickFireDiscordBot
 
 This is the bot we use to track when our members come in and out of our lab.
 
@@ -14,4 +14,4 @@ build locally, simply open the solution file using your IDE of choice, then
 build. Before running, ensure that there is a `secrets.txt` file in the build
 directory with the Discord token of your bot on the first line. Additionally,
 create a `config.json` file in the build directory with the properties defined
-in the [config file](TrickfireCheckIn/Config.cs).
+in the [config file](TrickFireDiscordBot/Config.cs).

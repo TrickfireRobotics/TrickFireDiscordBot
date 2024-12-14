@@ -1,6 +1,6 @@
-﻿using TrickfireCheckIn.Discord;
+﻿using TrickFireDiscordBot.Discord;
 
-namespace TrickfireCheckIn
+namespace TrickFireDiscordBot
 {
     internal class Program
     {

@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace TrickfireCheckIn
+namespace TrickFireDiscordBot
 {
     /// <summary>
     /// A class to store config values in. Do not store secrets like the discord
@@ -48,7 +48,7 @@ namespace TrickfireCheckIn
             path = Path.GetFullPath(path);
             if (!File.Exists(path))
             {
-                throw new FileNotFoundException($"Config file at path: `{path}` does not exist");
+                File.WriteAllText(path, "{}");
             }
 
             // Deserialize file. Throw error if deserialized fails (returns null)

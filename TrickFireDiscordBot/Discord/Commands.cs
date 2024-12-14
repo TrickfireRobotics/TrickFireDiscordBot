@@ -6,7 +6,7 @@ using DSharpPlus.Entities;
 using DSharpPlus.Exceptions;
 using System.ComponentModel;
 
-namespace TrickfireCheckIn.Discord
+namespace TrickFireDiscordBot.Discord
 {
     /// <summary>
     /// A class representing commands of the bot.
