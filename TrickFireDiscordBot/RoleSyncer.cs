@@ -1,20 +1,19 @@
-﻿using DSharpPlus.Entities;
+﻿using DSharpPlus;
+using DSharpPlus.Entities;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Notion.Client;
 using System.Net;
-using TrickFireDiscordBot.Discord;
 using TrickFireDiscordBot.Notion;
 
 namespace TrickFireDiscordBot
 {
-    public class RoleSyncer(ILogger logger, NotionClient notionClient, DiscordBot discordBot, WebhookListener listener)
+    public class RoleSyncer(ILogger logger, NotionClient notionClient, WebhookListener listener)
     {
         public const string WebhookEndpoint = "/members";
 
         public ILogger Logger { get; } = logger;
         public NotionClient NotionClient { get; } = notionClient;
-        public DiscordBot DiscordBot { get; } = discordBot;
         public WebhookListener WebhookListener { get; } = listener;
 
         private DiscordGuild? _trickFireGuild;
@@ -24,11 +23,11 @@ namespace TrickFireDiscordBot
         private readonly Dictionary<ObjectId, string> _pageNameCache = [];
         private string? _teamPageNamePropertyId = null;
 
-        public async Task Start()
+        public async Task Start(DiscordClient discordClient)
         {
             WebhookListener.OnWebhookReceived += OnWebhook;
 
-            _trickFireGuild = await DiscordBot.Client.GetGuildAsync(Config.Instance.TrickfireGuild);
+            _trickFireGuild = await discordClient.GetGuildAsync(Config.Instance.TrickfireGuild);
             foreach (DiscordRole role in _trickFireGuild.Roles.Values)
             {
                 _discordRoleCache.Add(role.Name, role);
@@ -38,6 +37,33 @@ namespace TrickFireDiscordBot
         public void Stop()
         {
             WebhookListener.OnWebhookReceived -= OnWebhook;
+        }
+
+        public async Task SyncAllMemberRoles()
+        {
+            Database membersDB = await NotionClient.Databases.RetrieveAsync("1301fd41-ff5b-817a-9a5d-fee3f7572db2");
+            List<string> targetProps = [
+                membersDB.Properties["Discord Username"].Id,
+                membersDB.Properties["Active?"].Id,
+                membersDB.Properties["Club Position(s)"].Id,
+                membersDB.Properties["Teams"].Id,
+            ];
+
+            Task<PaginatedList<Page>> nextPageQuery(string? cursor) =>
+                NotionClient.Databases.QueryAsync(
+                    "1301fd41-ff5b-817a-9a5d-fee3f7572db2",
+                    new DatabasesQueryParameters()
+                    {
+                        FilterProperties = targetProps,
+                        StartCursor = cursor
+                    }
+                );
+
+            await foreach (Page page in PaginatedListHelper.GetEnumerable(nextPageQuery))
+            {
+                await Task.Delay(333);
+                await SyncRoles(page);
+            }
         }
 
         private void OnWebhook(HttpListenerRequest request)
