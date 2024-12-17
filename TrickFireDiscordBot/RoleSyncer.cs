@@ -57,6 +57,8 @@ namespace TrickFireDiscordBot
             }
 
             SyncRoles(page).GetAwaiter().GetResult();
+
+            Console.WriteLine(JsonConvert.SerializeObject(page, Formatting.Indented));
         }
 
         private async Task SyncRoles(Page notionPage)

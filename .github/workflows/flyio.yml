@@ -11,7 +11,7 @@ jobs:
       - name: Create secrets file
         run: |
           touch secrets.txt
-          echo -e "${{secrets.BOT_TOKEN}}" >> secrets.txt
+          echo -e "${{secrets.BOT_TOKEN}}\n${{secrets.NOTION_SECRET}}" >> secrets.txt
 
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@master
