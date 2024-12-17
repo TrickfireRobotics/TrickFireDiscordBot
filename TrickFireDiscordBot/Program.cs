@@ -1,4 +1,5 @@
-﻿using TrickFireDiscordBot.Discord;
+﻿using Notion.Client;
+using TrickFireDiscordBot.Discord;
 
 namespace TrickFireDiscordBot
 {
@@ -6,20 +7,36 @@ namespace TrickFireDiscordBot
     {
         static async Task Main(string[] args)
         {
-            // The token is on the first line of the secrets.txt file
-            string token;
+            string[] lines;
             if (args.Length == 1)
             {
-                token = File.ReadAllLines(args[0])[0];
+                lines = File.ReadAllLines(args[0]);
             }
             else
             {
-                token = File.ReadAllLines("secrets.txt")[0];
+                lines = File.ReadAllLines("secrets.txt");
             }
 
             // Start the bot
-            Bot bot = new(token);
+            DiscordBot bot = new(lines[0]);
             await bot.Start();
+
+            // Start notion client
+            //NotionClient notionClient = NotionClientFactory.Create(new ClientOptions()
+            //{
+            //    AuthToken = lines[1]
+            //});
+
+            // Start the webhook listener
+
+            // This is not good security practice, but fly.io requires us to 
+            // expose 0.0.0.0:8080, which this is equivalent to
+            WebhookListener webhookListener = new(bot.Client.Logger, "http://*:8080/");
+            webhookListener.Start();
+
+            // Start role syncer
+            RoleSyncer syncer = new(null, bot, webhookListener);
+            syncer.Start();
 
             // Hang the process forever so it doesn't quit after the bot
             // connects

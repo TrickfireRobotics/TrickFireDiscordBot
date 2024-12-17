@@ -14,7 +14,7 @@ namespace TrickFireDiscordBot.Discord
     /// A class representing the Discord bot.
     /// </summary>
     /// <param name="token">The token of the bot</param>
-    public class Bot
+    public class DiscordBot
     {
         private const string SadCatASCII =
             "　　　　   ／＞----フ\r\n" +
@@ -34,7 +34,7 @@ namespace TrickFireDiscordBot.Discord
 
         private bool _needToUpdateEmbed = true;
 
-        public Bot(string token)
+        public DiscordBot(string token)
         {
             DiscordClientBuilder builder = DiscordClientBuilder
                 .CreateDefault(token, DiscordIntents.None)
