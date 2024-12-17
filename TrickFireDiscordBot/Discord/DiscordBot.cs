@@ -42,7 +42,7 @@ namespace TrickFireDiscordBot.Discord
                 {
                     conf.AbsoluteMessageCacheExpiration = TimeSpan.FromMinutes(5);
                     conf.SlidingMessageCacheExpiration = TimeSpan.FromMinutes(1);
-                    conf.AlwaysCacheMembers = false;
+                    conf.AlwaysCacheMembers = true;
                 })
                 .UseCommands((_, extension) =>
                 {
