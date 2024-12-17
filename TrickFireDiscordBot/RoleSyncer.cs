@@ -40,7 +40,7 @@ namespace TrickFireDiscordBot
             WebhookListener.OnWebhookReceived -= OnWebhook;
         }
 
-        private async void OnWebhook(HttpListenerRequest request)
+        private void OnWebhook(HttpListenerRequest request)
         {
             if (request.RawUrl == null || !request.RawUrl.StartsWith(WebhookEndpoint))
             {
@@ -56,14 +56,12 @@ namespace TrickFireDiscordBot
                 return;
             }
 
-            await SyncRoles(page);
-
-            Console.WriteLine(JsonConvert.SerializeObject(page, Formatting.Indented));
+            SyncRoles(page).GetAwaiter().GetResult();
         }
 
         private async Task SyncRoles(Page notionPage)
         {
-            DiscordMember? member = GetMember(notionPage);
+            DiscordMember? member = await GetMember(notionPage);
             if (member is null)
             {
                 return;
@@ -76,7 +74,7 @@ namespace TrickFireDiscordBot
             }
         }
 
-        private DiscordMember? GetMember(Page notionPage)
+        private async Task<DiscordMember?> GetMember(Page notionPage)
         {
             if (_trickFireGuild is null)
             {
@@ -90,7 +88,15 @@ namespace TrickFireDiscordBot
 
             if (member is null)
             {
-                Logger.LogWarning("Could not find member: {}", username);
+                IReadOnlyList<DiscordMember> search = await _trickFireGuild.SearchMembersAsync(username);
+                if (search.Count == 0 || search[0].Username != username)
+                {
+                    Logger.LogWarning("Could not find member: {}", username);
+                }
+                else
+                {
+                    member = search[0];
+                }
             }
             return member;
         }
@@ -110,7 +116,13 @@ namespace TrickFireDiscordBot
             MultiSelectPropertyValue positions = (notionPage.Properties["Club Position(s)"] as MultiSelectPropertyValue)!;
             foreach (SelectOption item in positions.MultiSelect)
             {
-                DiscordRole? role = GetRoleOrDefault(item.Name);
+                if (item.Name == "Individual Contributor")
+                {
+                    continue;
+                }
+
+                // Remove team suffix to make roles a little easier to read
+                DiscordRole? role = GetRoleOrDefault(item.Name.Replace(" Team", ""));
                 if (role is not null)
                 {
                     roles.Add(role);
@@ -123,7 +135,7 @@ namespace TrickFireDiscordBot
         private DiscordRole? GetActiveRole(Page notionPage)
         {
             string activeValue = (notionPage.Properties["Active?"] as SelectPropertyValue)!.Select.Name;
-            if (activeValue == "Inactive")
+            if (activeValue == "Active")
             {
                 return null;
             }
@@ -140,8 +152,9 @@ namespace TrickFireDiscordBot
             foreach (ObjectId id in teamIds)
             {
                 string teamName = await GetTeamName(id);
-                
-                DiscordRole? role = GetRoleOrDefault(teamName);
+
+                // Remove team suffix to make roles a little easier to read
+                DiscordRole? role = GetRoleOrDefault(teamName.Replace(" Team", ""));
                 if (role is not null)
                 {
                     roles.Add(role);
@@ -154,17 +167,16 @@ namespace TrickFireDiscordBot
         private async Task<string> GetTeamName(ObjectId id)
         {
             // Try using our cached property id if it exists
-            TitlePropertyValue nameValue;
             if (_teamPageNamePropertyId is not null)
             {
                 try
                 {
-                    nameValue = (await NotionClient.Pages.RetrievePagePropertyItemAsync(new RetrievePropertyItemParameters()
+                    ListPropertyItem item = (await NotionClient.Pages.RetrievePagePropertyItemAsync(new RetrievePropertyItemParameters()
                     {
                         PageId = id.Id,
                         PropertyId = _teamPageNamePropertyId
-                    }) as TitlePropertyValue)!;
-                    return nameValue.Title[0].PlainText;
+                    }) as ListPropertyItem)!;
+                    return (item.Results.First() as TitlePropertyItem)!.Title.PlainText;
                 }
                 catch (NotionApiException ex)
                 {
@@ -180,7 +192,7 @@ namespace TrickFireDiscordBot
 
             // If it doesn't or fails, then recache it and get the whole page
             Page teamPage = await NotionClient.Pages.RetrieveAsync(id.Id);
-            nameValue = (teamPage.Properties["Name"] as TitlePropertyValue)!;
+            TitlePropertyValue nameValue = (teamPage.Properties["Team name"] as TitlePropertyValue)!;
             _teamPageNamePropertyId = nameValue.Id;
             return nameValue.Title[0].PlainText;
         }

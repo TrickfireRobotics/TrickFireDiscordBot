@@ -22,10 +22,10 @@ namespace TrickFireDiscordBot
             await bot.Start();
 
             // Start notion client
-            //NotionClient notionClient = NotionClientFactory.Create(new ClientOptions()
-            //{
-            //    AuthToken = lines[1]
-            //});
+            NotionClient notionClient = NotionClientFactory.Create(new ClientOptions()
+            {
+                AuthToken = lines[1]
+            });
 
             // Start the webhook listener
 
@@ -35,8 +35,8 @@ namespace TrickFireDiscordBot
             webhookListener.Start();
 
             // Start role syncer
-            //RoleSyncer syncer = new(bot.Client.Logger, null, bot, webhookListener);
-            //await syncer.Start();
+            RoleSyncer syncer = new(bot.Client.Logger, notionClient, bot, webhookListener);
+            await syncer.Start();
 
             // Hang the process forever so it doesn't quit after the bot
             // connects
