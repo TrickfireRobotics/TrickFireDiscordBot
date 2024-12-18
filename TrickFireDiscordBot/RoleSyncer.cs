@@ -18,16 +18,13 @@ namespace TrickFireDiscordBot
 
         private DiscordGuild? _trickFireGuild;
         private readonly Dictionary<string, DiscordRole> _discordRoleCache = [];
-        // This could be a potential memory leak, but the rate at which it grows
-        // is so slow it will not be an issue
-        private readonly Dictionary<ObjectId, string> _pageNameCache = [];
         private string? _teamPageNamePropertyId = null;
 
         public async Task Start(DiscordClient discordClient)
         {
             WebhookListener.OnWebhookReceived += OnWebhook;
 
-            _trickFireGuild = await discordClient.GetGuildAsync(Config.Instance.TrickfireGuild);
+            _trickFireGuild = await discordClient.GetGuildAsync(Config.Instance.TrickfireGuildId);
             foreach (DiscordRole role in _trickFireGuild.Roles.Values)
             {
                 _discordRoleCache.Add(role.Name, role);
@@ -41,17 +38,17 @@ namespace TrickFireDiscordBot
 
         public async Task SyncAllMemberRoles()
         {
-            Database membersDB = await NotionClient.Databases.RetrieveAsync("1301fd41-ff5b-817a-9a5d-fee3f7572db2");
+            Database membersDB = await NotionClient.Databases.RetrieveAsync(Config.Instance.MembersDatabaseId);
             List<string> targetProps = [
-                membersDB.Properties["Discord Username"].Id,
-                membersDB.Properties["Active?"].Id,
-                membersDB.Properties["Club Position(s)"].Id,
-                membersDB.Properties["Teams"].Id,
+                membersDB.Properties[Config.Instance.DiscordUsernamePropertyName].Id,
+                membersDB.Properties[Config.Instance.ActivePropertyName].Id,
+                membersDB.Properties[Config.Instance.ClubPositionsPropertyName].Id,
+                membersDB.Properties[Config.Instance.TeamsPropertyName].Id,
             ];
 
             Task<PaginatedList<Page>> nextPageQuery(string? cursor) =>
                 NotionClient.Databases.QueryAsync(
-                    "1301fd41-ff5b-817a-9a5d-fee3f7572db2",
+                    Config.Instance.MembersDatabaseId,
                     new DatabasesQueryParameters()
                     {
                         FilterProperties = targetProps,
@@ -110,7 +107,8 @@ namespace TrickFireDiscordBot
             }
 
             // We want this to fail hard if something is wrong
-            string username = (notionPage.Properties["Discord Username"] as PhoneNumberPropertyValue)!.PhoneNumber;
+            string username = (notionPage.Properties[Config.Instance.DiscordUsernamePropertyName] 
+                as PhoneNumberPropertyValue)!.PhoneNumber;
             DiscordMember? member = _trickFireGuild.Members.Values
                 .FirstOrDefault(member => member.Username == username);
 
@@ -141,7 +139,8 @@ namespace TrickFireDiscordBot
 
             roles.AddRange(await GetTeams(notionPage));
 
-            MultiSelectPropertyValue positions = (notionPage.Properties["Club Position(s)"] as MultiSelectPropertyValue)!;
+            MultiSelectPropertyValue positions = (notionPage.Properties[Config.Instance.ClubPositionsPropertyName]
+                as MultiSelectPropertyValue)!;
             foreach (SelectOption item in positions.MultiSelect)
             {
                 if (item.Name == "Individual Contributor")
@@ -162,7 +161,8 @@ namespace TrickFireDiscordBot
 
         private DiscordRole? GetActiveRole(Page notionPage)
         {
-            string activeValue = (notionPage.Properties["Active?"] as SelectPropertyValue)!.Select.Name;
+            string activeValue = (notionPage.Properties[Config.Instance.ActivePropertyName] 
+                as SelectPropertyValue)!.Select.Name;
             if (activeValue == "Active")
             {
                 return null;
@@ -176,7 +176,8 @@ namespace TrickFireDiscordBot
         private async Task<IEnumerable<DiscordRole>> GetTeams(Page notionPage)
         {
             List<DiscordRole> roles = [];
-            List<ObjectId> teamIds = (notionPage.Properties["Teams"] as RelationPropertyValue)!.Relation;
+            List<ObjectId> teamIds = (notionPage.Properties[Config.Instance.TeamsPropertyName]
+                as RelationPropertyValue)!.Relation;
             foreach (ObjectId id in teamIds)
             {
                 string teamName = await GetTeamName(id);
@@ -220,7 +221,8 @@ namespace TrickFireDiscordBot
 
             // If it doesn't or fails, then recache it and get the whole page
             Page teamPage = await NotionClient.Pages.RetrieveAsync(id.Id);
-            TitlePropertyValue nameValue = (teamPage.Properties["Team name"] as TitlePropertyValue)!;
+            TitlePropertyValue nameValue = (teamPage.Properties[Config.Instance.TeamNamePropertyName]
+                as TitlePropertyValue)!;
             _teamPageNamePropertyId = nameValue.Id;
             return nameValue.Title[0].PlainText;
         }

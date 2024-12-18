@@ -23,17 +23,52 @@ namespace TrickFireDiscordBot
         /// <summary>
         /// The id of the trickfire Discord server.
         /// </summary>
-        public ulong TrickfireGuild { get; set; } = 0;
+        public ulong TrickfireGuildId { get; set; } = 0;
 
         /// <summary>
         /// The id of the channel that current attendance is sent to.
         /// </summary>
-        public ulong CheckInChannel { get; set; } = 0;
+        public ulong CheckInChannelId { get; set; } = 0;
 
         /// <summary>
         /// The id of the message that has the list of members in the shop.
         /// </summary>
-        public ulong ListMessage { get; set; } = 0;
+        public ulong ListMessageId { get; set; } = 0;
+
+        /// <summary>
+        /// The id of the Teams page database in Notion.
+        /// </summary>
+        public string TeamsDatabaseId { get; set; } = "";
+
+        /// <summary>
+        /// The id of the Members page database in Notion.
+        /// </summary>
+        public string MembersDatabaseId { get; set; } = "";
+
+        /// <summary>
+        /// The name of the database property for a members' discord username.
+        /// </summary>
+        public string DiscordUsernamePropertyName { get; set; } = "";
+
+        /// <summary>
+        /// The name of the database property for a members' active status.
+        /// </summary>
+        public string ActivePropertyName { get; set; } = "";
+
+        /// <summary>
+        /// The name of the database property for a members' club positions.
+        /// </summary>
+        public string ClubPositionsPropertyName { get; set; } = "";
+
+        /// <summary>
+        /// The name of the database property for a members' teams.
+        /// </summary>
+        public string TeamsPropertyName { get; set; } = "";
+
+        /// <summary>
+        /// The name of the database property for a team's name
+        /// </summary>
+        public string TeamNamePropertyName { get; set; } = "";
 
         /// <summary>
         /// Returns a config object loaded from the file at <paramref name="path"/>.

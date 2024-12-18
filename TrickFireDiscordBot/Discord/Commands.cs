@@ -37,16 +37,16 @@ namespace TrickFireDiscordBot.Discord
             // Delete old message
             try
             {
-                DiscordChannel oldChannel = await context.Guild!.GetChannelAsync(Config.Instance.CheckInChannel);
-                DiscordMessage message = await oldChannel.GetMessageAsync(Config.Instance.ListMessage);
+                DiscordChannel oldChannel = await context.Guild!.GetChannelAsync(Config.Instance.CheckInChannelId);
+                DiscordMessage message = await oldChannel.GetMessageAsync(Config.Instance.ListMessageId);
                 await message.DeleteAsync();
             }
             catch (NotFoundException) { }
             catch (UnauthorizedException) { }
 
             // Update channel in config
-            Config.Instance.CheckInChannel = channel.Id;
-            Config.Instance.ListMessage = 0;
+            Config.Instance.CheckInChannelId = channel.Id;
+            Config.Instance.ListMessageId = 0;
             Config.Instance.SaveConfig();
 
             // Return success

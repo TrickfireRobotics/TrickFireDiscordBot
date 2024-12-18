@@ -35,8 +35,8 @@ namespace TrickFireDiscordBot
             webhookListener.Start();
 
             // Start role syncer
-            RoleSyncer syncer = new(bot.Client.Logger, notionClient, bot, webhookListener);
-            await syncer.Start();
+            RoleSyncer syncer = new(bot.Client.Logger, notionClient, webhookListener);
+            await syncer.Start(bot.Client);
 
             // Hang the process forever so it doesn't quit after the bot
             // connects

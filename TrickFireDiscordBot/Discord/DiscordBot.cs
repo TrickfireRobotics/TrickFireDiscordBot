@@ -121,7 +121,7 @@ namespace TrickFireDiscordBot.Discord
 
         private async Task LongThread()
         {
-            ulong lastCheckInChannel = Config.Instance.CheckInChannel;
+            ulong lastCheckInChannel = Config.Instance.CheckInChannelId;
             DateTimeOffset lastClearTime = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(-8));
             while (true)
             {
@@ -144,10 +144,10 @@ namespace TrickFireDiscordBot.Discord
                     }
 
                     // Update embed to reflect number of members checked in
-                    if (_needToUpdateEmbed || lastCheckInChannel != Config.Instance.CheckInChannel)
+                    if (_needToUpdateEmbed || lastCheckInChannel != Config.Instance.CheckInChannelId)
                     {
                         await UpdateListMessage();
-                        lastCheckInChannel = Config.Instance.CheckInChannel;
+                        lastCheckInChannel = Config.Instance.CheckInChannelId;
 
                         // Update status to reflect number of members checked in
                         if (_needToUpdateEmbed)
@@ -176,11 +176,11 @@ namespace TrickFireDiscordBot.Discord
             DiscordMessageBuilder builder = CreateMessage();
 
             // Check if message exists
-            DiscordGuild tfGuild = await Client.GetGuildAsync(Config.Instance.TrickfireGuild);
+            DiscordGuild tfGuild = await Client.GetGuildAsync(Config.Instance.TrickfireGuildId);
             DiscordChannel channel;
             try
             {
-                channel = await tfGuild.GetChannelAsync(Config.Instance.CheckInChannel);
+                channel = await tfGuild.GetChannelAsync(Config.Instance.CheckInChannelId);
             }
             catch (NotFoundException)
             {
@@ -190,7 +190,7 @@ namespace TrickFireDiscordBot.Discord
             try
             {
                 // If it does, update it
-                DiscordMessage message = await channel.GetMessageAsync(Config.Instance.ListMessage);
+                DiscordMessage message = await channel.GetMessageAsync(Config.Instance.ListMessageId);
                 await message.ModifyAsync(builder);
             }
             catch (DiscordException ex)
@@ -200,7 +200,7 @@ namespace TrickFireDiscordBot.Discord
                     return;
                 }
                 // If not, update the config with the new message
-                Config.Instance.ListMessage = (await channel.SendMessageAsync(builder)).Id;
+                Config.Instance.ListMessageId = (await channel.SendMessageAsync(builder)).Id;
                 Config.Instance.SaveConfig();
             }
 
