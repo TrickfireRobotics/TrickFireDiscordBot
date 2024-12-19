@@ -9,14 +9,14 @@ using TrickFireDiscordBot.Notion;
 
 namespace TrickFireDiscordBot
 {
-    public class RoleSyncer(ILogger<RoleSyncer> logger, NotionClient notionClient, WebhookListener listener)
+    public class RoleSyncer(ILogger<RoleSyncer> logger, INotionClient notionClient, WebhookListener listener)
     {
         public const string WebhookEndpoint = "/members";
 
         private static readonly Regex _technicalLeadRegex = new(Config.Instance.TechnicalLeadRegex);
 
         public ILogger Logger { get; } = logger;
-        public NotionClient NotionClient { get; } = notionClient;
+        public INotionClient NotionClient { get; } = notionClient;
         public WebhookListener WebhookListener { get; } = listener;
 
         private DiscordGuild? _trickFireGuild;
@@ -41,28 +41,36 @@ namespace TrickFireDiscordBot
 
         public async Task SyncAllMemberRoles()
         {
-            Database membersDB = await NotionClient.Databases.RetrieveAsync(Config.Instance.MembersDatabaseId);
-            List<string> targetProps = [
-                membersDB.Properties[Config.Instance.DiscordUsernamePropertyName].Id,
-                membersDB.Properties[Config.Instance.ActivePropertyName].Id,
-                membersDB.Properties[Config.Instance.ClubPositionsPropertyName].Id,
-                membersDB.Properties[Config.Instance.TeamsPropertyName].Id,
-            ];
+            if (_trickFireGuild is null)
+            {
+                return;
+            }
 
             Task<PaginatedList<Page>> nextPageQuery(string? cursor) =>
                 NotionClient.Databases.QueryAsync(
                     Config.Instance.MembersDatabaseId,
                     new DatabasesQueryParameters()
                     {
-                        FilterProperties = targetProps,
                         StartCursor = cursor
                     }
                 );
 
+            HashSet<DiscordMember?> processedMembers = [];
             await foreach (Page page in PaginatedListHelper.GetEnumerable(nextPageQuery))
             {
                 await Task.Delay(333);
-                await SyncRoles(page);
+                processedMembers.Add(await SyncRoles(page));
+                Logger.LogInformation("\n");
+            }
+
+            Logger.LogInformation("\nNo notion page users:");
+            await foreach (DiscordMember member in _trickFireGuild.GetAllMembersAsync())
+            {
+                if (processedMembers.Contains(member))
+                {
+                    continue;
+                }
+                Logger.LogInformation("{}, ({})", member.DisplayName, member.Username);
             }
         }
 
@@ -87,17 +95,17 @@ namespace TrickFireDiscordBot
             Console.WriteLine(JsonConvert.SerializeObject(page, Formatting.Indented));
         }
 
-        private async Task SyncRoles(Page notionPage)
+        private async Task<DiscordMember?> SyncRoles(Page notionPage)
         {
             if (_trickFireGuild is null)
             {
-                return;
+                return null;
             }
 
             DiscordMember? member = await GetMember(notionPage);
             if (member is null)
             {
-                return;
+                return null;
             }
 
             IEnumerable<DiscordRole?> newRoles = await GetRoles(notionPage);
@@ -122,6 +130,8 @@ namespace TrickFireDiscordBot
             //    }
             //    model.Roles = rolesWithLeadership;
             //});
+
+            return member;
         }
 
         private async Task<DiscordMember?> GetMember(Page notionPage)
@@ -132,8 +142,17 @@ namespace TrickFireDiscordBot
             }
 
             // We want this to fail hard if something is wrong
-            string username = (notionPage.Properties[Config.Instance.DiscordUsernamePropertyName] 
+            string? username = (notionPage.Properties[Config.Instance.DiscordUsernamePropertyName] 
                 as PhoneNumberPropertyValue)!.PhoneNumber;
+
+            if (string.IsNullOrWhiteSpace(username))
+            {
+                Logger.LogWarning("User with page url {} has no discord.", notionPage.Url);
+                return null;
+            }
+
+            username = username.TrimStart('@').ToLower();
+
             DiscordMember? member = _trickFireGuild.Members.Values
                 .FirstOrDefault(member => member.Username == username);
 

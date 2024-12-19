@@ -1,6 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Notion.Client;
 using TrickFireDiscordBot.Discord;
 
 namespace TrickFireDiscordBot
@@ -25,10 +24,10 @@ namespace TrickFireDiscordBot
 
                 services
                     // Add notion client
-                    .AddSingleton(NotionClientFactory.Create(new ClientOptions()
+                    .AddNotionClient(options =>
                     {
-                        AuthToken = lines[1]
-                    }))
+                        options.AuthToken = lines[1];
+                    })
 
                     // Add webhook listener
                     .AddSingleton(container =>

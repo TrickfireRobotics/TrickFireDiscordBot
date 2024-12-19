@@ -65,7 +65,16 @@ namespace TrickFireDiscordBot.Discord
             // Ephemeral makes it so the response is invisible to other people
             return context.RespondAsync($"Pong! Latency is {latency.TotalMilliseconds:N0}ms", true);
         }
-            
+
+        [Command("resyncall")]
+        [Description("Resyncs all members' roles with their Notion page")]
+        [InteractionAllowedContexts(DiscordInteractionContextType.Guild)]
+        public static async Task ResyncAllRoles(SlashCommandContext context)
+        {
+            await context.DeferResponseAsync();
+            await context.ServiceProvider.GetRequiredService<RoleSyncer>().SyncAllMemberRoles();
+            await context.RespondAsync("Finished");
+        }
 
         [Command("checkinout")]
         [Description("Checks you into/out of the shop and updates the member list")]
