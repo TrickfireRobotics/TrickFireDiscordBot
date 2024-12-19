@@ -41,14 +41,16 @@ namespace TrickFireDiscordBot
                     })
 
                     // Add role syncer
-                    .AddSingleton<RoleSyncer>();
+                    .AddSingleton<RoleSyncer>()
+
+                    .AddSingleton<BotState>();
 
                 // Start the bot
                 DiscordBot bot = new(lines[0], services);
                 await bot.Start();
 
                 // Start the role syncer
-                await bot.Client.ServiceProvider.GetService<RoleSyncer>()!.Start(bot.Client);
+                await bot.Client.ServiceProvider.GetRequiredService<RoleSyncer>().Start(bot.Client);
             }
             catch (Exception e)
             {

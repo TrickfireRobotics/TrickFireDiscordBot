@@ -4,6 +4,7 @@ using DSharpPlus.Commands.Processors.SlashCommands;
 using DSharpPlus.Commands.Processors.SlashCommands.Metadata;
 using DSharpPlus.Entities;
 using DSharpPlus.Exceptions;
+using Microsoft.Extensions.DependencyInjection;
 using System.ComponentModel;
 
 namespace TrickFireDiscordBot.Discord
@@ -71,10 +72,10 @@ namespace TrickFireDiscordBot.Discord
         [InteractionAllowedContexts(DiscordInteractionContextType.Guild)]
         public static Task CheckInOut(SlashCommandContext context)
         {
-            return CheckInOutInternal(context.Interaction);
+            return CheckInOutInternal(context.Interaction, context.ServiceProvider.GetRequiredService<BotState>());
         }
 
-        internal static async Task CheckInOutInternal(DiscordInteraction interaction)
+        internal static async Task CheckInOutInternal(DiscordInteraction interaction, BotState state)
         {
             await interaction.DeferAsync(true);
 
@@ -84,9 +85,9 @@ namespace TrickFireDiscordBot.Discord
 
             // Find index of member in list
             int memberIndex = -1;
-            for (int i = 0; i < State.Members.Count; i++)
+            for (int i = 0; i < state.Members.Count; i++)
             {
-                if (State.Members[i].member == member)
+                if (state.Members[i].member == member)
                 {
                     memberIndex = i;
                     break;
@@ -96,11 +97,11 @@ namespace TrickFireDiscordBot.Discord
             // Update member list
             if (memberIndex == -1)
             {
-                State.Members.Add((member, interaction.CreationTimestamp));
+                state.Members.Add((member, interaction.CreationTimestamp));
             }
             else
             {
-                State.Members.RemoveAt(memberIndex);
+                state.Members.RemoveAt(memberIndex);
             }
 
             // Send confirmation response

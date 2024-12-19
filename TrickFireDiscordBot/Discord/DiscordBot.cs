@@ -33,6 +33,8 @@ namespace TrickFireDiscordBot.Discord
         /// </summary>
         public DiscordClient Client { get; }
 
+        private BotState BotState => Client.ServiceProvider.GetRequiredService<BotState>();
+
         private bool _needToUpdateEmbed = true;
 
         public DiscordBot(string token, IServiceCollection services)
@@ -70,7 +72,7 @@ namespace TrickFireDiscordBot.Discord
 
             // Subscribe to updates of member list
             object lock_ = new();
-            State.Members.CollectionChanged += (_, ev) => 
+            BotState.Members.CollectionChanged += (_, ev) => 
             { 
                 lock(lock_)
                 {
@@ -93,14 +95,14 @@ namespace TrickFireDiscordBot.Discord
             };
         }
 
-        private static Task OnComponentInteraction(DiscordClient _, ComponentInteractionCreatedEventArgs e)
+        private Task OnComponentInteraction(DiscordClient _, ComponentInteractionCreatedEventArgs e)
         {
             if (e.Id != "CheckInOutButton")
             {
                 return Task.CompletedTask;
             }
 
-            return Commands.CheckInOutInternal(e.Interaction);
+            return Commands.CheckInOutInternal(e.Interaction, BotState);
         }
 
         /// <summary>
@@ -141,7 +143,7 @@ namespace TrickFireDiscordBot.Discord
                     DateTimeOffset currentTime = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(-8));
                     if (lastClearTime.Day != currentTime.Day)
                     {
-                        State.Members.Clear();
+                        BotState.Members.Clear();
                         lastClearTime = currentTime;
                     }
 
@@ -161,7 +163,7 @@ namespace TrickFireDiscordBot.Discord
                         if (_needToUpdateEmbed)
                         {
                             await Client.UpdateStatusAsync(new DiscordActivity(
-                                $" {State.Members.Count} member{(State.Members.Count == 1 ? "" : "s")} in the shop!",
+                                $" {BotState.Members.Count} member{(BotState.Members.Count == 1 ? "" : "s")} in the shop!",
                                 DiscordActivityType.Watching
                             ));
                             _needToUpdateEmbed = false;
@@ -218,7 +220,7 @@ namespace TrickFireDiscordBot.Discord
         /// Returns an embed listing the members in <see cref="Config.Members"/>.
         /// </summary>
         /// <returns>An embed listing the checked in members</returns>
-        private static DiscordMessageBuilder CreateMessage()
+        private DiscordMessageBuilder CreateMessage()
         {
             // Create embed without members
             DiscordEmbedBuilder embed = new DiscordEmbedBuilder()
@@ -233,15 +235,15 @@ namespace TrickFireDiscordBot.Discord
             );
 
             // Add members to description string
-            for (int i = 0; i < State.Members.Count; i++)
+            for (int i = 0; i < BotState.Members.Count; i++)
             {
-                (DiscordMember member, DateTimeOffset time) = State.Members[i];
+                (DiscordMember member, DateTimeOffset time) = BotState.Members[i];
 
                 sb.AppendLine($"{member.Mention} ({Formatter.Timestamp(time, TimestampFormat.ShortTime)})");
             }
             
             // Sad no members message :(
-            if (State.Members.Count == 0)
+            if (BotState.Members.Count == 0)
             {
                 sb.AppendLine("No ones in the shop :(\n" + SadCatASCII);
             }
