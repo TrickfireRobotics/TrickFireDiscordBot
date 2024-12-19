@@ -1,4 +1,6 @@
-﻿using Notion.Client;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Notion.Client;
 using TrickFireDiscordBot.Discord;
 
 namespace TrickFireDiscordBot
@@ -19,26 +21,34 @@ namespace TrickFireDiscordBot
 
             try
             {
+                ServiceCollection services = new();
+
+                services
+                    // Add notion client
+                    .AddSingleton(NotionClientFactory.Create(new ClientOptions()
+                    {
+                        AuthToken = lines[1]
+                    }))
+
+                    // Add webhook listener
+                    .AddSingleton(container =>
+                    {
+                        // This is not good security practice, but fly.io requires us to 
+                        // expose 0.0.0.0:8080, which this is equivalent to
+                        WebhookListener webhookListener = new(container.GetRequiredService<ILogger<WebhookListener>>(), "http://*:8080/");
+                        webhookListener.Start();
+                        return webhookListener;
+                    })
+
+                    // Add role syncer
+                    .AddSingleton<RoleSyncer>();
+
                 // Start the bot
-                DiscordBot bot = new(lines[0]);
+                DiscordBot bot = new(lines[0], services);
                 await bot.Start();
 
-                // Start notion client
-                NotionClient notionClient = NotionClientFactory.Create(new ClientOptions()
-                {
-                    AuthToken = lines[1]
-                });
-
-                // Start the webhook listener
-
-                // This is not good security practice, but fly.io requires us to 
-                // expose 0.0.0.0:8080, which this is equivalent to
-                WebhookListener webhookListener = new(bot.Client.Logger, "http://*:8080/");
-                webhookListener.Start();
-
-                // Start role syncer
-                RoleSyncer syncer = new(bot.Client.Logger, notionClient, webhookListener);
-                await syncer.Start(bot.Client);
+                // Start the role syncer
+                await bot.Client.ServiceProvider.GetService<RoleSyncer>()!.Start(bot.Client);
             }
             catch (Exception e)
             {

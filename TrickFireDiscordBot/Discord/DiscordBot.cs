@@ -4,6 +4,7 @@ using DSharpPlus.Commands.Processors.SlashCommands;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 using DSharpPlus.Exceptions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Reflection;
 using System.Text;
@@ -34,7 +35,7 @@ namespace TrickFireDiscordBot.Discord
 
         private bool _needToUpdateEmbed = true;
 
-        public DiscordBot(string token)
+        public DiscordBot(string token, IServiceCollection services)
         {
             DiscordClientBuilder builder = DiscordClientBuilder
                 .CreateDefault(token, DiscordIntents.None)
@@ -43,6 +44,13 @@ namespace TrickFireDiscordBot.Discord
                     conf.AbsoluteMessageCacheExpiration = TimeSpan.FromMinutes(5);
                     conf.SlidingMessageCacheExpiration = TimeSpan.FromMinutes(1);
                     conf.AlwaysCacheMembers = true;
+                })
+                .ConfigureServices(botServices =>
+                {
+                    foreach (ServiceDescriptor service in services)
+                    {
+                        botServices.Add(service);
+                    }
                 })
                 .UseCommands((_, extension) =>
                 {

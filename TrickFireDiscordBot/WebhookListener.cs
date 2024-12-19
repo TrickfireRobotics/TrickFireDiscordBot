@@ -12,7 +12,7 @@ namespace TrickFireDiscordBot
         private readonly HttpListener _listener = new();
         private bool _isRunning = false;
 
-        public WebhookListener(ILogger logger, params string[] prefixes)
+        public WebhookListener(ILogger<WebhookListener> logger, params string[] prefixes)
         {
             Logger = logger;
             foreach (string prefix in prefixes)

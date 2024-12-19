@@ -9,7 +9,7 @@ using TrickFireDiscordBot.Notion;
 
 namespace TrickFireDiscordBot
 {
-    public class RoleSyncer(ILogger logger, NotionClient notionClient, WebhookListener listener)
+    public class RoleSyncer(ILogger<RoleSyncer> logger, NotionClient notionClient, WebhookListener listener)
     {
         public const string WebhookEndpoint = "/members";
 
