@@ -17,26 +17,33 @@ namespace TrickFireDiscordBot
                 lines = File.ReadAllLines("secrets.txt");
             }
 
-            // Start the bot
-            DiscordBot bot = new(lines[0]);
-            await bot.Start();
-
-            // Start notion client
-            NotionClient notionClient = NotionClientFactory.Create(new ClientOptions()
+            try
             {
-                AuthToken = lines[1]
-            });
+                // Start the bot
+                DiscordBot bot = new(lines[0]);
+                await bot.Start();
 
-            // Start the webhook listener
+                // Start notion client
+                NotionClient notionClient = NotionClientFactory.Create(new ClientOptions()
+                {
+                    AuthToken = lines[1]
+                });
 
-            // This is not good security practice, but fly.io requires us to 
-            // expose 0.0.0.0:8080, which this is equivalent to
-            WebhookListener webhookListener = new(bot.Client.Logger, "http://*:8080/");
-            webhookListener.Start();
+                // Start the webhook listener
 
-            // Start role syncer
-            RoleSyncer syncer = new(bot.Client.Logger, notionClient, webhookListener);
-            await syncer.Start(bot.Client);
+                // This is not good security practice, but fly.io requires us to 
+                // expose 0.0.0.0:8080, which this is equivalent to
+                WebhookListener webhookListener = new(bot.Client.Logger, "http://*:8080/");
+                webhookListener.Start();
+
+                // Start role syncer
+                RoleSyncer syncer = new(bot.Client.Logger, notionClient, webhookListener);
+                await syncer.Start(bot.Client);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Startup error. The bot is likely not in a working state: " + e.ToString());
+            }
 
             // Hang the process forever so it doesn't quit after the bot
             // connects

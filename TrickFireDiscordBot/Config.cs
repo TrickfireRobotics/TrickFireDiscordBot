@@ -41,6 +41,11 @@ namespace TrickFireDiscordBot
         public string TeamsDatabaseId { get; set; } = "";
 
         /// <summary>
+        /// The name of the database property for a team's name
+        /// </summary>
+        public string TeamNamePropertyName { get; set; } = "";
+
+        /// <summary>
         /// The id of the Members page database in Notion.
         /// </summary>
         public string MembersDatabaseId { get; set; } = "";
@@ -65,10 +70,9 @@ namespace TrickFireDiscordBot
         /// </summary>
         public string TeamsPropertyName { get; set; } = "";
 
-        /// <summary>
-        /// The name of the database property for a team's name
-        /// </summary>
-        public string TeamNamePropertyName { get; set; } = "";
+        public ulong TechnicalLeadRoleId { get; set; } = 0;
+
+        public string TechnicalLeadRegex { get; set; } = "";
 
         /// <summary>
         /// Returns a config object loaded from the file at <paramref name="path"/>.

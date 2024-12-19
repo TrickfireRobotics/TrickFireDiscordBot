@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Notion.Client;
 using System.Net;
+using System.Text.RegularExpressions;
 using TrickFireDiscordBot.Notion;
 
 namespace TrickFireDiscordBot
@@ -11,6 +12,8 @@ namespace TrickFireDiscordBot
     public class RoleSyncer(ILogger logger, NotionClient notionClient, WebhookListener listener)
     {
         public const string WebhookEndpoint = "/members";
+
+        private static readonly Regex _technicalLeadRegex = new(Config.Instance.TechnicalLeadRegex);
 
         public ILogger Logger { get; } = logger;
         public NotionClient NotionClient { get; } = notionClient;
@@ -86,17 +89,39 @@ namespace TrickFireDiscordBot
 
         private async Task SyncRoles(Page notionPage)
         {
+            if (_trickFireGuild is null)
+            {
+                return;
+            }
+
             DiscordMember? member = await GetMember(notionPage);
             if (member is null)
             {
                 return;
             }
-            //await member.ReplaceRolesAsync(await GetRoles(notionPage));
+
+            IEnumerable<DiscordRole?> newRoles = await GetRoles(notionPage);
             Logger.LogInformation(member.DisplayName);
-            foreach (DiscordRole role in await GetRoles(notionPage)) 
+            foreach (DiscordRole? role in newRoles)
             {
-                Logger.LogInformation(role.Name);
+                if (role is null)
+                {
+                    continue;
+                }
+
+                Logger.LogInformation(role!.Name);
             }
+
+            //int highestRole = _trickFireGuild.CurrentMember.Roles.Max(role => role.Position);
+            //await member.ModifyAsync(model =>
+            //{
+            //    List<DiscordRole> rolesWithLeadership = [];
+            //    foreach (DiscordRole role in member.Roles.Where(role => role.Position >= highestRole))
+            //    {
+            //        rolesWithLeadership.Add(role);
+            //    }
+            //    model.Roles = rolesWithLeadership;
+            //});
         }
 
         private async Task<DiscordMember?> GetMember(Page notionPage)
@@ -148,11 +173,16 @@ namespace TrickFireDiscordBot
                     continue;
                 }
 
-                // Remove team suffix to make roles a little easier to read
-                DiscordRole? role = GetRoleOrDefault(item.Name.Replace(" Team", ""));
-                if (role is not null)
+                if (_technicalLeadRegex.IsMatch(item.Name))
                 {
-                    roles.Add(role);
+                    roles.Add(_discordRoleCache.Values.First(role => role.Id == Config.Instance.TechnicalLeadRoleId));
+                }
+
+                // Remove team suffix to make roles a little easier to read
+                DiscordRole? positionRole = GetRoleOrDefault(item.Name.Replace(" Team", ""));
+                if (positionRole is not null)
+                {
+                    roles.Add(positionRole);
                 }
             }
 
@@ -188,6 +218,7 @@ namespace TrickFireDiscordBot
                 {
                     roles.Add(role);
                 }
+
             }
 
             return roles;
