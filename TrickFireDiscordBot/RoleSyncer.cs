@@ -115,15 +115,10 @@ namespace TrickFireDiscordBot
                 return null;
             }
 
-            IEnumerable<DiscordRole?> newRoles = await GetRoles(notionPage);
+            IEnumerable<DiscordRole> newRoles = await GetRoles(notionPage);
             Logger.LogInformation(member.DisplayName);
-            foreach (DiscordRole? role in newRoles)
+            foreach (DiscordRole role in newRoles)
             {
-                if (role is null)
-                {
-                    continue;
-                }
-
                 Logger.LogInformation(role!.Name);
             }
 
@@ -133,7 +128,7 @@ namespace TrickFireDiscordBot
                 int highestRole = botMember.Roles.Max(role => role.Position);
                 await member.ModifyAsync(model =>
                 {
-                    List<DiscordRole> rolesWithLeadership = [];
+                    List<DiscordRole> rolesWithLeadership = new(newRoles);
                     foreach (DiscordRole role in member.Roles.Where(role => role.Position >= highestRole))
                     {
                         rolesWithLeadership.Add(role);
