@@ -9,7 +9,7 @@ using TrickFireDiscordBot.Notion;
 
 namespace TrickFireDiscordBot
 {
-    public class RoleSyncer(ILogger<RoleSyncer> logger, INotionClient notionClient, WebhookListener listener)
+    public class RoleSyncer(ILogger<RoleSyncer> logger, INotionClient notionClient, DiscordClient discordClient, WebhookListener listener)
     {
         public const string WebhookEndpoint = "/members";
 
@@ -17,17 +17,18 @@ namespace TrickFireDiscordBot
 
         public ILogger Logger { get; } = logger;
         public INotionClient NotionClient { get; } = notionClient;
+        public DiscordClient DiscordClient { get; } = discordClient;
         public WebhookListener WebhookListener { get; } = listener;
 
         private DiscordGuild? _trickFireGuild;
         private readonly Dictionary<string, DiscordRole> _discordRoleCache = [];
         private string? _teamPageNamePropertyId = null;
 
-        public async Task Start(DiscordClient discordClient)
+        public async Task Start()
         {
             WebhookListener.OnWebhookReceived += OnWebhook;
 
-            _trickFireGuild = await discordClient.GetGuildAsync(Config.Instance.TrickfireGuildId);
+            _trickFireGuild = await DiscordClient.GetGuildAsync(Config.Instance.TrickfireGuildId);
             foreach (DiscordRole role in _trickFireGuild.Roles.Values)
             {
                 _discordRoleCache.Add(role.Name, role);
@@ -39,7 +40,7 @@ namespace TrickFireDiscordBot
             WebhookListener.OnWebhookReceived -= OnWebhook;
         }
 
-        public async Task SyncAllMemberRoles()
+        public async Task SyncAllMemberRoles(bool dryRun = true)
         {
             if (_trickFireGuild is null)
             {
@@ -59,16 +60,22 @@ namespace TrickFireDiscordBot
             await foreach (Page page in PaginatedListHelper.GetEnumerable(nextPageQuery))
             {
                 await Task.Delay(333);
-                processedMembers.Add(await SyncRoles(page));
+                processedMembers.Add(await SyncRoles(page, dryRun));
                 Logger.LogInformation("\n");
             }
 
             Logger.LogInformation("\nNo notion page users:");
+            DiscordRole inactiveRole = _discordRoleCache.Values.First(role => role.Id == Config.Instance.InactiveRoleId);
             await foreach (DiscordMember member in _trickFireGuild.GetAllMembersAsync())
             {
                 if (processedMembers.Contains(member))
                 {
                     continue;
+                }
+                if (!dryRun && !member.Roles.Contains(inactiveRole))
+                {
+                    await member.GrantRoleAsync(inactiveRole);
+                    await Task.Delay(333);
                 }
                 Logger.LogInformation("{}, ({})", member.DisplayName, member.Username);
             }
@@ -95,7 +102,7 @@ namespace TrickFireDiscordBot
             Console.WriteLine(JsonConvert.SerializeObject(page, Formatting.Indented));
         }
 
-        private async Task<DiscordMember?> SyncRoles(Page notionPage)
+        private async Task<DiscordMember?> SyncRoles(Page notionPage, bool dryRun = true)
         {
             if (_trickFireGuild is null)
             {
@@ -120,16 +127,21 @@ namespace TrickFireDiscordBot
                 Logger.LogInformation(role!.Name);
             }
 
-            //int highestRole = _trickFireGuild.CurrentMember.Roles.Max(role => role.Position);
-            //await member.ModifyAsync(model =>
-            //{
-            //    List<DiscordRole> rolesWithLeadership = [];
-            //    foreach (DiscordRole role in member.Roles.Where(role => role.Position >= highestRole))
-            //    {
-            //        rolesWithLeadership.Add(role);
-            //    }
-            //    model.Roles = rolesWithLeadership;
-            //});
+            if (!dryRun) 
+            {
+                DiscordMember botMember = await _trickFireGuild.GetMemberAsync(DiscordClient.CurrentUser.Id, true);
+                int highestRole = botMember.Roles.Max(role => role.Position);
+                await member.ModifyAsync(model =>
+                {
+                    List<DiscordRole> rolesWithLeadership = [];
+                    foreach (DiscordRole role in member.Roles.Where(role => role.Position >= highestRole))
+                    {
+                        rolesWithLeadership.Add(role);
+                    }
+                    model.Roles = rolesWithLeadership;
+                });
+                await Task.Delay(333);
+            }
 
             return member;
         }
@@ -167,6 +179,7 @@ namespace TrickFireDiscordBot
                 {
                     member = search[0];
                 }
+                await Task.Delay(333);
             }
             return member;
         }

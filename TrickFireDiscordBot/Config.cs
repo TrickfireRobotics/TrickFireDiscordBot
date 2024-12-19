@@ -70,9 +70,21 @@ namespace TrickFireDiscordBot
         /// </summary>
         public string TeamsPropertyName { get; set; } = "";
 
+        /// <summary>
+        /// The id of the technical lead role.
+        /// </summary>
         public ulong TechnicalLeadRoleId { get; set; } = 0;
 
+        /// <summary>
+        /// A regex determining if the club position listed in notion makes a
+        /// member a technical lead.
+        /// </summary>
         public string TechnicalLeadRegex { get; set; } = "";
+
+        /// <summary>
+        /// The id of the inactive role.
+        /// </summary>
+        public ulong InactiveRoleId { get; set; } = 0;
 
         /// <summary>
         /// Returns a config object loaded from the file at <paramref name="path"/>.

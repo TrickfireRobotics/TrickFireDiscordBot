@@ -69,10 +69,15 @@ namespace TrickFireDiscordBot.Discord
         [Command("resyncall")]
         [Description("Resyncs all members' roles with their Notion page")]
         [InteractionAllowedContexts(DiscordInteractionContextType.Guild)]
-        public static async Task ResyncAllRoles(SlashCommandContext context)
+        [RequirePermissions([], [DiscordPermission.Administrator])]
+        public static async Task ResyncAllRoles(
+            SlashCommandContext context,
+            [Parameter("dryRun")]
+            [Description("Set to false to actually affect roles")]
+            bool dryRun = true)
         {
             await context.DeferResponseAsync();
-            await context.ServiceProvider.GetRequiredService<RoleSyncer>().SyncAllMemberRoles();
+            await context.ServiceProvider.GetRequiredService<RoleSyncer>().SyncAllMemberRoles(dryRun);
             await context.RespondAsync("Finished");
         }
 

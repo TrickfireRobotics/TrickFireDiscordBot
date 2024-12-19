@@ -49,7 +49,7 @@ namespace TrickFireDiscordBot
                 await bot.Start();
 
                 // Start the role syncer
-                await bot.Client.ServiceProvider.GetRequiredService<RoleSyncer>().Start(bot.Client);
+                await bot.Client.ServiceProvider.GetRequiredService<RoleSyncer>().Start();
             }
             catch (Exception e)
             {
