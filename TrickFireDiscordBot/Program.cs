@@ -2,6 +2,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 using System.Reflection;
 using TrickFireDiscordBot.Services;
 
@@ -25,7 +27,6 @@ namespace TrickFireDiscordBot
                 await Task.Delay(-1);
                 return;
             }
-
 
             try
             {
@@ -73,6 +74,19 @@ namespace TrickFireDiscordBot
                 MethodInfo registerMethod = type.GetMethod(nameof(IAutoRegisteredService.Register), [typeof(IHostApplicationBuilder)])!;
                 registerMethod.Invoke(null, [builder]);
             }
+
+            // Setup logging
+            builder.Logging
+                .AddConsole(opt =>
+                {
+                    opt.FormatterName = "logger";
+                })
+                .AddConsoleFormatter<LoggerFormatter, ConsoleFormatterOptions>(opt =>
+                {
+                    opt.TimestampFormat = "yy-MM-dd HH:mm:ss";
+                    opt.UseUtcTimestamp = false;
+                    opt.IncludeScopes = true;
+                });
 
             return builder.Build();
         }
