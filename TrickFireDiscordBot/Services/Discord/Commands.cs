@@ -6,8 +6,9 @@ using DSharpPlus.Entities;
 using DSharpPlus.Exceptions;
 using Microsoft.Extensions.DependencyInjection;
 using System.ComponentModel;
+using TrickFireDiscordBot.Services;
 
-namespace TrickFireDiscordBot.Discord
+namespace TrickFireDiscordBot.Services.Discord
 {
     /// <summary>
     /// A class representing commands of the bot.
@@ -21,34 +22,40 @@ namespace TrickFireDiscordBot.Discord
         [InteractionAllowedContexts(DiscordInteractionContextType.Guild)]
         [RequirePermissions([], [DiscordPermission.ManageGuild])]
         public static async Task SetCheckInChannel(
-            SlashCommandContext context, 
+            SlashCommandContext context,
             [Parameter("channel")]
             [Description("The channel to send checkin messages to")]
             DiscordChannel channel
-        ) {
+        )
+        {
             // Guild is not null because it cannot be called outsides guilds
             DiscordPermissions permissions = channel.PermissionsFor(context.Guild!.CurrentMember);
-            if (!permissions.HasPermission(DiscordPermission.SendMessages | DiscordPermission.ViewChannel))
+            if (!permissions.HasPermission(DiscordPermission.SendMessages) || !permissions.HasPermission(DiscordPermission.ViewChannel))
             {
                 await context.RespondAsync("Bot does not have permission to send messages in that channel");
                 return;
             }
             else if (!permissions.HasPermission(DiscordPermission.ReadMessageHistory))
+            {
+                await context.RespondAsync("Bot does not have permission to read messages in that channel");
+                return;
+            }
 
             // Delete old message
+            BotState state = context.ServiceProvider.GetRequiredService<BotState>();
             try
             {
-                DiscordChannel oldChannel = await context.Guild!.GetChannelAsync(Config.Instance.CheckInChannelId);
-                DiscordMessage message = await oldChannel.GetMessageAsync(Config.Instance.ListMessageId);
+                DiscordChannel oldChannel = await context.Guild!.GetChannelAsync(state.CheckInChannelId);
+                DiscordMessage message = await oldChannel.GetMessageAsync(state.ListMessageId);
                 await message.DeleteAsync();
             }
             catch (NotFoundException) { }
             catch (UnauthorizedException) { }
 
             // Update channel in config
-            Config.Instance.CheckInChannelId = channel.Id;
-            Config.Instance.ListMessageId = 0;
-            Config.Instance.SaveConfig();
+            state.CheckInChannelId = channel.Id;
+            state.ListMessageId = 0;
+            state.Save();
 
             // Return success
             await context.RespondAsync("Channel succesfully set!");

@@ -1,7 +1,7 @@
 ﻿using Newtonsoft.Json;
 using Notion.Client;
 
-namespace TrickFireDiscordBot.Notion
+namespace TrickFireDiscordBot.Services.Notion
 {
     public class Automation
     {

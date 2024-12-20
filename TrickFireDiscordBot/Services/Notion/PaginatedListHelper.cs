@@ -1,7 +1,7 @@
 ﻿using Notion.Client;
 using System.Collections.Generic;
 
-namespace TrickFireDiscordBot.Notion
+namespace TrickFireDiscordBot.Services.Notion
 {
     /// <summary>
     /// Various helpers for the PaginatedList<T> class.

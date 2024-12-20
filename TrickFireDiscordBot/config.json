@@ -1,0 +1,22 @@
+{
+  "DiscordServiceOptions": {
+    "MainGuildId": 541737196915261462
+  },
+  "RoleSyncerOptions": {
+    "CheckInChannelId": 1301043511696818196,
+    "ListMessageId": 1301083095818309642,
+    "TeamsDatabaseId": "1301fd41-ff5b-81f2-8a91-f837f0ea28a4",
+    "TeamNamePropertyName": "Team name",
+    "MembersDatabaseId": "1301fd41-ff5b-817a-9a5d-fee3f7572db2",
+    "DiscordUsernamePropertyName": "Discord Username",
+    "ActivePropertyName": "Active?",
+    "ClubPositionsPropertyName": "Club Position(s)",
+    "TeamsPropertyName": "Teams",
+    "TechnicalLeadRoleId": 1314341103603810384,
+    "TechnicalLeadRegex": "(.* ((Team Lead)|(Mission Director)))|(System Integrator)",
+    "InactiveRoleId": 1183543002036174918
+  },
+  "BotStateOptions": {
+    "FileLocation": "state.json"
+  }
+}

@@ -1,64 +1,80 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using TrickFireDiscordBot.Discord;
+﻿using DSharpPlus;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using System.Reflection;
+using TrickFireDiscordBot.Services;
 
 namespace TrickFireDiscordBot
 {
     internal class Program
     {
-        static async Task Main(string[] args)
+        private static async Task Main(string[] args)
         {
-            string[] lines;
-            if (args.Length == 1)
-            {
-                lines = File.ReadAllLines(args[0]);
-            }
-            else
-            {
-                lines = File.ReadAllLines("secrets.txt");
-            }
+            string baseDir = args.Length > 0 ? args[0] : "";
+            string[] secrets = File.ReadAllLines(Path.Join(baseDir, "secrets.txt"));
 
+            IHost host;
             try
             {
-                ServiceCollection services = new();
-
-                services
-                    // Add notion client
-                    .AddNotionClient(options =>
-                    {
-                        options.AuthToken = lines[1];
-                    })
-
-                    // Add webhook listener
-                    .AddSingleton(container =>
-                    {
-                        // This is not good security practice, but fly.io requires us to 
-                        // expose 0.0.0.0:8080, which this is equivalent to
-                        WebhookListener webhookListener = new(container.GetRequiredService<ILogger<WebhookListener>>(), "http://*:8080/");
-                        webhookListener.Start();
-                        return webhookListener;
-                    })
-
-                    // Add role syncer
-                    .AddSingleton<RoleSyncer>()
-
-                    .AddSingleton<BotState>();
-
-                // Start the bot
-                DiscordBot bot = new(lines[0], services);
-                await bot.Start();
-
-                // Start the role syncer
-                await bot.Client.ServiceProvider.GetRequiredService<RoleSyncer>().Start();
+                host = CreateHost(baseDir, secrets);
             }
             catch (Exception e)
             {
                 Console.WriteLine("Startup error. The bot is likely not in a working state: " + e.ToString());
+                await Task.Delay(-1);
+                return;
             }
 
-            // Hang the process forever so it doesn't quit after the bot
-            // connects
-            await Task.Delay(-1);
+
+            try
+            {
+                await host.StartAsync();
+
+                // Hang the process forever so it doesn't quit after the bot
+                // connects
+                await host.WaitForShutdownAsync();
+            }
+            finally
+            {
+                // Dispose of discord client before host, since it needs the
+                // service provider
+                try
+                {
+                    host.Services.GetService<DiscordClient>()?.Dispose();
+                }
+                finally
+                {
+                    host.Dispose();
+                }
+            }
+        }
+
+        private static IHost CreateHost(string baseDir, string[] secrets)
+        {
+            HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+
+            // Add config.json
+            builder.Configuration.AddJsonFile(Path.Join(baseDir, "config.json"));
+            builder.Configuration["BOT_TOKEN"] = secrets[0];
+            builder.Configuration["NOTION_SECRET"] = secrets[1];
+
+            // Get all types
+            Assembly asm = Assembly.GetExecutingAssembly();
+            foreach (Type type in asm.GetTypes())
+            {
+                // Filter to those that implement auto registered service
+                if (!typeof(IAutoRegisteredService).IsAssignableFrom(type) || type == typeof(IAutoRegisteredService))
+                {
+                    continue;
+                }
+
+                // Register type
+                MethodInfo registerMethod = type.GetMethod(nameof(IAutoRegisteredService.Register), [typeof(IHostApplicationBuilder)])!;
+                registerMethod.Invoke(null, [builder]);
+            }
+
+            return builder.Build();
         }
     }
 }

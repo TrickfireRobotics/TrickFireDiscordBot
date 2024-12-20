@@ -4,18 +4,21 @@ using DSharpPlus.Commands.Processors.SlashCommands;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 using DSharpPlus.Exceptions;
+using DSharpPlus.Extensions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System.Reflection;
 using System.Text;
 
-namespace TrickFireDiscordBot.Discord
+namespace TrickFireDiscordBot.Services.Discord
 {
     /// <summary>
     /// A class representing the Discord bot.
     /// </summary>
     /// <param name="token">The token of the bot</param>
-    public class DiscordBot
+    public class DiscordService : BackgroundService, IAutoRegisteredService
     {
         private const string SadCatASCII =
             "　　　　   ／＞----フ\r\n" +
@@ -33,48 +36,22 @@ namespace TrickFireDiscordBot.Discord
         /// </summary>
         public DiscordClient Client { get; }
 
+        public DiscordGuild MainGuild { get; }
+
         private BotState BotState => Client.ServiceProvider.GetRequiredService<BotState>();
 
         private bool _needToUpdateEmbed = true;
 
-        public DiscordBot(string token, IServiceCollection services)
+        public DiscordService(DiscordClient client, IOptions<DiscordServiceOptions> options)
         {
-            DiscordClientBuilder builder = DiscordClientBuilder
-                .CreateDefault(token, DiscordIntents.None)
-                .ConfigureExtraFeatures((conf) =>
-                {
-                    conf.AbsoluteMessageCacheExpiration = TimeSpan.FromMinutes(5);
-                    conf.SlidingMessageCacheExpiration = TimeSpan.FromMinutes(1);
-                    conf.AlwaysCacheMembers = true;
-                })
-                .ConfigureServices(botServices =>
-                {
-                    foreach (ServiceDescriptor service in services)
-                    {
-                        botServices.Add(service);
-                    }
-                })
-                .UseCommands((_, extension) =>
-                {
-                    // Configure to slash commands
-                    extension.AddProcessor(new SlashCommandProcessor());
-
-                    // Add our commands from our code (anything with the command
-                    // decorator)
-                    extension.AddCommands(Assembly.GetExecutingAssembly());
-                })
-                .ConfigureEventHandlers(events =>
-                {
-                    events.HandleComponentInteractionCreated(OnComponentInteraction);
-                });
-         
-            Client = builder.Build();
+            Client = client;
+            MainGuild = client.GetGuildAsync(options.Value.MainGuildId).GetAwaiter().GetResult();
 
             // Subscribe to updates of member list
             object lock_ = new();
-            BotState.Members.CollectionChanged += (_, ev) => 
-            { 
-                lock(lock_)
+            BotState.Members.CollectionChanged += (_, ev) =>
+            {
+                lock (lock_)
                 {
                     _needToUpdateEmbed = true;
 
@@ -95,20 +72,8 @@ namespace TrickFireDiscordBot.Discord
             };
         }
 
-        private Task OnComponentInteraction(DiscordClient _, ComponentInteractionCreatedEventArgs e)
-        {
-            if (e.Id != "CheckInOutButton")
-            {
-                return Task.CompletedTask;
-            }
 
-            return Commands.CheckInOutInternal(e.Interaction, BotState);
-        }
-
-        /// <summary>
-        /// Connects the bot and starts it.
-        /// </summary>
-        public async Task Start()
+        public override async Task StartAsync(CancellationToken cancellationToken)
         {
             // This tells Discord we are using slash commands
             await Client.InitializeAsync();
@@ -116,27 +81,27 @@ namespace TrickFireDiscordBot.Discord
             // Connect our bot to the Discord API
             await Client.ConnectAsync();
 
-            // Run our long running task to monitor state
-            _ = Task.Run(async () => {
-                try
-                {
-                    await LongThread();
-                }
-                catch (Exception ex)
-                {
-                    Client.Logger.LogError(ex, "Bot long thread init has exception:");
-                }
-            });
+            await base.StartAsync(cancellationToken);
         }
 
-        private async Task LongThread()
+        public override async Task StopAsync(CancellationToken cancellationToken)
         {
-            ulong lastCheckInChannel = Config.Instance.CheckInChannelId;
+            await base.StopAsync(cancellationToken);
+
+            if (Client.AllShardsConnected)
+            {
+                await Client.DisconnectAsync();
+            }
+        }
+
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            ulong lastCheckInChannel = BotState.CheckInChannelId;
             DateTimeOffset lastClearTime = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(-8));
-            while (true)
+            while (!stoppingToken.IsCancellationRequested)
             {
                 // Wait so we're not running at the speed of light
-                await Task.Delay(3000);
+                await Task.Delay(3000, stoppingToken);
                 try
                 {
                     // Clear member list at the start of each day
@@ -154,10 +119,10 @@ namespace TrickFireDiscordBot.Discord
                     }
 
                     // Update embed to reflect number of members checked in
-                    if (_needToUpdateEmbed || lastCheckInChannel != Config.Instance.CheckInChannelId)
+                    if (_needToUpdateEmbed || lastCheckInChannel != BotState.CheckInChannelId)
                     {
                         await UpdateListMessage();
-                        lastCheckInChannel = Config.Instance.CheckInChannelId;
+                        lastCheckInChannel = BotState.CheckInChannelId;
 
                         // Update status to reflect number of members checked in
                         if (_needToUpdateEmbed)
@@ -173,7 +138,7 @@ namespace TrickFireDiscordBot.Discord
                 }
                 catch (Exception ex)
                 {
-                    Client.Logger.LogError(ex, "Bot long thread has exception:");
+                    Client.Logger.LogError(ex, "Bot main loop:");
                 }
             }
         }
@@ -186,11 +151,10 @@ namespace TrickFireDiscordBot.Discord
             DiscordMessageBuilder builder = CreateMessage();
 
             // Check if message exists
-            DiscordGuild tfGuild = await Client.GetGuildAsync(Config.Instance.TrickfireGuildId);
             DiscordChannel channel;
             try
             {
-                channel = await tfGuild.GetChannelAsync(Config.Instance.CheckInChannelId);
+                channel = await MainGuild.GetChannelAsync(BotState.CheckInChannelId);
             }
             catch (NotFoundException)
             {
@@ -200,18 +164,18 @@ namespace TrickFireDiscordBot.Discord
             try
             {
                 // If it does, update it
-                DiscordMessage message = await channel.GetMessageAsync(Config.Instance.ListMessageId);
+                DiscordMessage message = await channel.GetMessageAsync(BotState.ListMessageId);
                 await message.ModifyAsync(builder);
             }
             catch (DiscordException ex)
             {
-                if (ex is not NotFoundException && ex is not UnauthorizedException )
+                if (ex is not NotFoundException && ex is not UnauthorizedException)
                 {
                     return;
                 }
                 // If not, update the config with the new message
-                Config.Instance.ListMessageId = (await channel.SendMessageAsync(builder)).Id;
-                Config.Instance.SaveConfig();
+                BotState.ListMessageId = (await channel.SendMessageAsync(builder)).Id;
+                BotState.Save();
             }
 
         }
@@ -241,7 +205,7 @@ namespace TrickFireDiscordBot.Discord
 
                 sb.AppendLine($"{member.Mention} ({Formatter.Timestamp(time, TimestampFormat.ShortTime)})");
             }
-            
+
             // Sad no members message :(
             if (BotState.Members.Count == 0)
             {
@@ -259,5 +223,61 @@ namespace TrickFireDiscordBot.Discord
                 ))
                 .AddEmbed(embed.Build());
         }
+
+        public static void Register(IHostApplicationBuilder builder)
+        {
+            builder.Services
+                .AddDiscordClient(builder.Configuration["BOT_TOKEN"]!, DiscordIntents.None)
+                .Configure<DiscordConfiguration>(builder.Configuration.GetSection("DiscordBotConfig"))
+                .AddCommandsExtension((_, extension) =>
+                {
+                    // Configure to slash commands
+                    extension.AddProcessor(new SlashCommandProcessor());
+
+                    // Add our commands from our code (anything with the command
+                    // decorator)
+                    extension.AddCommands(Assembly.GetExecutingAssembly());
+                })
+                .ConfigureEventHandlers(events =>
+                {
+                    events.AddEventHandlers<EventHandlers>();
+                })
+                .AddInjectableHostedService<DiscordService>()
+                .ConfigureTypeSection<DiscordServiceOptions>(builder.Configuration);
+        }
+
+        private class EventHandlers(BotState botState, DiscordService service)
+            : IEventHandler<ComponentInteractionCreatedEventArgs>, IEventHandler<SessionCreatedEventArgs>
+        {
+            public Task HandleEventAsync(DiscordClient _, ComponentInteractionCreatedEventArgs e)
+            {
+                if (e.Id != "CheckInOutButton")
+                {
+                    return Task.CompletedTask;
+                }
+
+                return Commands.CheckInOutInternal(e.Interaction, botState);
+            }
+
+            public async Task HandleEventAsync(DiscordClient sender, SessionCreatedEventArgs eventArgs)
+            {
+                // Connecting changes the guild in the cache, so reset it to the one
+                // we like
+                (service.Client.Guilds as IDictionary<ulong, DiscordGuild>)![service.MainGuild.Id] = service.MainGuild;
+
+                // Make sure CurrentMember is not null
+                FieldInfo memberField = typeof(DiscordGuild).GetField("members", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                IDictionary<ulong, DiscordMember> members = (memberField.GetValue(service.MainGuild) as IDictionary<ulong, DiscordMember>)!;
+                members[service.Client.CurrentUser.Id] = await service.MainGuild.GetMemberAsync(service.Client.CurrentUser.Id);
+            }
+        }
+    }
+
+    public class DiscordServiceOptions
+    {
+        /// <summary>
+        /// The id of the main discord guild of the bot.
+        /// </summary>
+        public ulong MainGuildId { get; set; } = 0;
     }
 }
