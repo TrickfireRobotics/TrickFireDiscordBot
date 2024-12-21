@@ -121,13 +121,15 @@ public class RoleSyncer(
         }
     }
 
-    private async Task<DiscordMember?> SyncRoles(Page notionPage, bool dryRun = true)
-    {
-        DiscordMember? member = await GetMember(notionPage);
-        if (member is null)
+        private async Task<DiscordMember?> SyncRoles(Page notionPage, bool dryRun = true)
         {
-            return null;
-        }
+            Console.WriteLine(JsonConvert.SerializeObject(notionPage, Formatting.Indented));
+
+            DiscordMember? member = await GetMember(notionPage);
+            if (member is null)
+            {
+                return null;
+            }
 
         IEnumerable<DiscordRole> newRoles = await GetRoles(notionPage);
         logger.LogInformation(member.DisplayName);
@@ -151,16 +153,14 @@ public class RoleSyncer(
             await Task.Delay(1000);
         }
 
-        Console.WriteLine(JsonConvert.SerializeObject(notionPage, Formatting.Indented));
+            return member;
+        }
 
-        return member;
-    }
-
-    private async Task<DiscordMember?> GetMember(Page notionPage)
-    {
-        // We want this to fail hard if something is wrong
-        string? username = (notionPage.Properties[options.Value.DiscordUsernamePropertyName]
-            as PhoneNumberPropertyValue)!.PhoneNumber;
+        private async Task<DiscordMember?> GetMember(Page notionPage)
+        {
+            // We want this to fail hard if something is wrong
+            string? username = (notionPage.Properties[options.Value.DiscordUsernamePropertyName]
+                as FormulaPropertyValue)!.Formula.String;
 
         if (string.IsNullOrWhiteSpace(username))
         {

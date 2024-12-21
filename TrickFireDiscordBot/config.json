@@ -8,7 +8,7 @@
     "TeamsDatabaseId": "1301fd41-ff5b-81f2-8a91-f837f0ea28a4",
     "TeamNamePropertyName": "Team name",
     "MembersDatabaseId": "1301fd41-ff5b-817a-9a5d-fee3f7572db2",
-    "DiscordUsernamePropertyName": "Discord Username",
+    "DiscordUsernamePropertyName": "Cleaned Discord",
     "ActivePropertyName": "Active?",
     "ClubPositionsPropertyName": "Club Position(s)",
     "TeamsPropertyName": "Teams",
