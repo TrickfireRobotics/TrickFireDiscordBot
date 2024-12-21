@@ -29,15 +29,17 @@ public class BotState : IAutoRegisteredService
 
     private BotStateOptions Options { get; }
 
-    public BotState(IOptions<BotStateOptions> options)
-    {
-        Options = options.Value;
-        if (!File.Exists(Options.FileLocation))
+        public BotState(IOptions<BotStateOptions> options)
         {
-            File.WriteAllText(Options.FileLocation, "{}");
+            Options = options.Value;
+            if (!File.Exists(Options.FileLocation))
+            {
+                File.WriteAllText(Options.FileLocation, "{}");
+            }
+            JsonConvert.PopulateObject(File.ReadAllText(Options.FileLocation), this);
+
+            Members.CollectionChanged += (_, __) => Save();
         }
-        JsonConvert.PopulateObject(File.ReadAllText(Options.FileLocation), this);
-    }
 
     public void Save()
     {

@@ -51,10 +51,13 @@ public static class Commands
         catch (NotFoundException) { }
         catch (UnauthorizedException) { }
 
-        // Update channel in config
-        state.CheckInChannelId = channel.Id;
-        state.ListMessageId = 0;
-        state.Save();
+            // Update channel in config
+            if (state.CheckInChannelId != channel.Id)
+            {
+                state.CheckInChannelId = channel.Id;
+                state.ListMessageId = 0;
+                state.Save();
+            }
 
         // Return success
         await context.RespondAsync("Channel succesfully set!");
@@ -103,16 +106,17 @@ public static class Commands
         // guilds
         DiscordMember member = (interaction.User as DiscordMember)!;
 
-        // Find index of member in list
-        int memberIndex = -1;
-        for (int i = 0; i < state.Members.Count; i++)
-        {
-            if (state.Members[i].member == member)
+            // Find index of member in list
+            int memberIndex = -1;
+            for (int i = 0; i < state.Members.Count; i++)
             {
-                memberIndex = i;
-                break;
+                if (state.Members[i].member.Id == member.Id)
+                {
+                    memberIndex = i;
+                    state.Members[i] = (member, state.Members[i].time);
+                    break;
+                }
             }
-        }
 
         // Update member list
         if (memberIndex == -1)
