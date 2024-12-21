@@ -28,6 +28,8 @@ internal class Program
             return;
         }
 
+        ILogger logger = host.Services.GetRequiredService<ILogger<Program>>();
+
         try
         {
             await host.StartAsync();
@@ -44,9 +46,20 @@ internal class Program
             {
                 host.Services.GetService<DiscordClient>()?.Dispose();
             }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to dispose of discord client on shutdown");
+            }
             finally
             {
-                host.Dispose();
+                try
+                {
+                    host.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Failed to dispose of host on shutdown");
+                }
             }
         }
     }
