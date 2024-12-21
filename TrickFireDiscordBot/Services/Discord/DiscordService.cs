@@ -209,7 +209,7 @@ public class DiscordService : BackgroundService, IAutoRegisteredService
         // Sad no members message :(
         if (BotState.Members.Count == 0)
         {
-            sb.AppendLine("No ones in the shop :(\n" + SadCatASCII);
+            sb.AppendLine("No one's in the shop :(\n" + SadCatASCII);
         }
 
         // Add description
