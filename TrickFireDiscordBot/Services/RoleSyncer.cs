@@ -118,7 +118,14 @@ public class RoleSyncer(
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            await SyncRoles(await _pageQueue.Reader.ReadAsync(stoppingToken));
+            try
+            {
+                await SyncRoles(await _pageQueue.Reader.ReadAsync(stoppingToken));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error in RoleSyncer main loop: ");
+            }
         }
     }
 

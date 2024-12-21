@@ -27,7 +27,7 @@ internal class Program
             await Task.Delay(-1);
             return;
         }
-
+        
         ILogger logger = host.Services.GetRequiredService<ILogger<Program>>();
 
         try
@@ -72,6 +72,8 @@ internal class Program
         builder.Configuration.AddJsonFile(Path.Join(baseDir, "config.json"));
         builder.Configuration["BOT_TOKEN"] = secrets[0];
         builder.Configuration["NOTION_SECRET"] = secrets[1];
+
+        builder.Services.ConfigureTypeSection<HostOptions>(builder.Configuration);
 
         // Get all types
         Assembly asm = Assembly.GetExecutingAssembly();

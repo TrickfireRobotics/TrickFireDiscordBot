@@ -41,17 +41,24 @@ public class WebhookListener : BackgroundService, IAutoRegisteredService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            // Wait for request
-            HttpListenerContext ctx;
-            ctx = await _listener.GetContextAsync().WaitAsync(stoppingToken);
+            try
+            {
+                // Wait for request
+                HttpListenerContext ctx;
+                ctx = await _listener.GetContextAsync().WaitAsync(stoppingToken);
 
-            // Read request body
-            OnWebhookReceived?.Invoke(ctx.Request);
+                // Read request body
+                OnWebhookReceived?.Invoke(ctx.Request);
 
-            // Return ok response on request
-            ctx.Response.StatusCode = (int)HttpStatusCode.OK;
-            ctx.Response.OutputStream.Write(Encoding.UTF8.GetBytes("Ok"));
-            ctx.Response.OutputStream.Close();
+                // Return ok response on request
+                ctx.Response.StatusCode = (int)HttpStatusCode.OK;
+                ctx.Response.OutputStream.Write(Encoding.UTF8.GetBytes("Ok"));
+                ctx.Response.OutputStream.Close();
+            }
+            catch (Exception ex) 
+            {
+                Logger.LogError(ex, "Exception in WebhookListener main loop: ");
+            }
         }
     }
 

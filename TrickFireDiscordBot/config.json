@@ -18,5 +18,8 @@
   },
   "BotStateOptions": {
     "FileLocation": "state.json"
+  },
+  "HostOptions": {
+    "BackgroundServiceExceptionBehavior": "Ignore"
   }
 }
