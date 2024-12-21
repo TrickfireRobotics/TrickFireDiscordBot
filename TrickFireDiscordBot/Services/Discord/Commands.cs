@@ -6,7 +6,6 @@ using DSharpPlus.Entities;
 using DSharpPlus.Exceptions;
 using Microsoft.Extensions.DependencyInjection;
 using System.ComponentModel;
-using TrickFireDiscordBot.Services;
 
 namespace TrickFireDiscordBot.Services.Discord;
 

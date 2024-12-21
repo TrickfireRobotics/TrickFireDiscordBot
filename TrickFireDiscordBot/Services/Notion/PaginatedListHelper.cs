@@ -1,5 +1,4 @@
 ﻿using Notion.Client;
-using System.Collections.Generic;
 
 namespace TrickFireDiscordBot.Services.Notion;
 
