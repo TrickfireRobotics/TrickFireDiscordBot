@@ -6,25 +6,19 @@ using System.Text;
 
 namespace TrickFireDiscordBot.Services;
 
-public class WebhookListener : BackgroundService, IAutoRegisteredService
+public class WebhookListener(ILogger<WebhookListener> logger, IOptions<WebhookListenerOptions> options) 
+    : BackgroundService, IAutoRegisteredService
 {
     public event Action<HttpListenerRequest>? OnWebhookReceived;
 
-    public ILogger Logger { get; }
-
     private readonly HttpListener _listener = new();
 
-    public WebhookListener(ILogger<WebhookListener> logger, IOptions<WebhookListenerOptions> options)
+    public override Task StartAsync(CancellationToken cancellationToken)
     {
-        Logger = logger;
         foreach (string prefix in options.Value.Prefixes)
         {
             _listener.Prefixes.Add(prefix);
         }
-    }
-
-    public override Task StartAsync(CancellationToken cancellationToken)
-    {
         _listener.Start();
 
         return base.StartAsync(cancellationToken);
@@ -57,7 +51,7 @@ public class WebhookListener : BackgroundService, IAutoRegisteredService
             }
             catch (Exception ex) 
             {
-                Logger.LogError(ex, "Exception in WebhookListener main loop: ");
+                logger.LogError(ex, "Exception in WebhookListener main loop: ");
             }
         }
     }
