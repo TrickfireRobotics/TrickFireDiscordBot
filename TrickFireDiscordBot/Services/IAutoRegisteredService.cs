@@ -1,9 +1,8 @@
 ﻿using Microsoft.Extensions.Hosting;
 
-namespace TrickFireDiscordBot.Services
+namespace TrickFireDiscordBot.Services;
+
+public interface IAutoRegisteredService
 {
-    public interface IAutoRegisteredService
-    {
-        public static abstract void Register(IHostApplicationBuilder builder);
-    }
+    public static abstract void Register(IHostApplicationBuilder builder);
 }

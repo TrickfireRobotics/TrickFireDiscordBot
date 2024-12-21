@@ -12,272 +12,271 @@ using Microsoft.Extensions.Options;
 using System.Reflection;
 using System.Text;
 
-namespace TrickFireDiscordBot.Services.Discord
+namespace TrickFireDiscordBot.Services.Discord;
+
+/// <summary>
+/// A class representing the Discord bot.
+/// </summary>
+/// <param name="token">The token of the bot</param>
+public class DiscordService : BackgroundService, IAutoRegisteredService
 {
+    private const string SadCatASCII =
+        "　　　　   ／＞----フ\r\n" +
+        "　　　　 　|　\\_  \\_ l\r\n" +
+        "　 　　　／` ミ＿xノ　\r\n" +
+        "　　　　/　　　　 |\r\n" +
+        "　　　 /　ヽ　   ﾉ\r\n" +
+        "　　　│　　|　|　|\r\n" +
+        "　／￣|　　 |　|　|\r\n" +
+        "　| (￣ヽ＿\\_ヽ\\_)\\_\\_)\r\n" +
+        "　＼二つ";
+
     /// <summary>
-    /// A class representing the Discord bot.
+    /// The client associated with the bot.
     /// </summary>
-    /// <param name="token">The token of the bot</param>
-    public class DiscordService : BackgroundService, IAutoRegisteredService
+    public DiscordClient Client { get; }
+
+    public DiscordGuild MainGuild { get; }
+
+    private BotState BotState => Client.ServiceProvider.GetRequiredService<BotState>();
+
+    private bool _needToUpdateEmbed = true;
+
+    public DiscordService(DiscordClient client, IOptions<DiscordServiceOptions> options)
     {
-        private const string SadCatASCII =
-            "　　　　   ／＞----フ\r\n" +
-            "　　　　 　|　\\_  \\_ l\r\n" +
-            "　 　　　／` ミ＿xノ　\r\n" +
-            "　　　　/　　　　 |\r\n" +
-            "　　　 /　ヽ　   ﾉ\r\n" +
-            "　　　│　　|　|　|\r\n" +
-            "　／￣|　　 |　|　|\r\n" +
-            "　| (￣ヽ＿\\_ヽ\\_)\\_\\_)\r\n" +
-            "　＼二つ";
+        Client = client;
+        MainGuild = client.GetGuildAsync(options.Value.MainGuildId).GetAwaiter().GetResult();
 
-        /// <summary>
-        /// The client associated with the bot.
-        /// </summary>
-        public DiscordClient Client { get; }
-
-        public DiscordGuild MainGuild { get; }
-
-        private BotState BotState => Client.ServiceProvider.GetRequiredService<BotState>();
-
-        private bool _needToUpdateEmbed = true;
-
-        public DiscordService(DiscordClient client, IOptions<DiscordServiceOptions> options)
+        // Subscribe to updates of member list
+        object lock_ = new();
+        BotState.Members.CollectionChanged += (_, ev) =>
         {
-            Client = client;
-            MainGuild = client.GetGuildAsync(options.Value.MainGuildId).GetAwaiter().GetResult();
-
-            // Subscribe to updates of member list
-            object lock_ = new();
-            BotState.Members.CollectionChanged += (_, ev) =>
+            lock (lock_)
             {
-                lock (lock_)
-                {
-                    _needToUpdateEmbed = true;
+                _needToUpdateEmbed = true;
 
-                    IEnumerable<string> oldItems = (ev.OldItems ?? new List<string>())
-                        .Cast<(DiscordMember, DateTimeOffset)>()
-                        .Select(val => val.Item1.DisplayName);
+                IEnumerable<string> oldItems = (ev.OldItems ?? new List<string>())
+                    .Cast<(DiscordMember, DateTimeOffset)>()
+                    .Select(val => val.Item1.DisplayName);
 
-                    IEnumerable<string> newItems = (ev.NewItems ?? new List<string>())
-                        .Cast<(DiscordMember, DateTimeOffset)>()
-                        .Select(val => val.Item1.DisplayName);
+                IEnumerable<string> newItems = (ev.NewItems ?? new List<string>())
+                    .Cast<(DiscordMember, DateTimeOffset)>()
+                    .Select(val => val.Item1.DisplayName);
 
-                    Client.Logger.LogInformation(
-                        "Member collection changed: {}\nOld items: {}\nNew items: {}",
-                        ev.Action.ToString(),
-                        string.Join(", ", oldItems),
-                        string.Join(", ", newItems));
-                }
-            };
-        }
-
-
-        public override async Task StartAsync(CancellationToken cancellationToken)
-        {
-            // This tells Discord we are using slash commands
-            await Client.InitializeAsync();
-
-            // Connect our bot to the Discord API
-            await Client.ConnectAsync();
-
-            await base.StartAsync(cancellationToken);
-        }
-
-        public override async Task StopAsync(CancellationToken cancellationToken)
-        {
-            await base.StopAsync(cancellationToken);
-
-            if (Client.AllShardsConnected)
-            {
-                await Client.DisconnectAsync();
+                Client.Logger.LogInformation(
+                    "Member collection changed: {}\nOld items: {}\nNew items: {}",
+                    ev.Action.ToString(),
+                    string.Join(", ", oldItems),
+                    string.Join(", ", newItems));
             }
-        }
+        };
+    }
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+
+    public override async Task StartAsync(CancellationToken cancellationToken)
+    {
+        // This tells Discord we are using slash commands
+        await Client.InitializeAsync();
+
+        // Connect our bot to the Discord API
+        await Client.ConnectAsync();
+
+        await base.StartAsync(cancellationToken);
+    }
+
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        await base.StopAsync(cancellationToken);
+
+        if (Client.AllShardsConnected)
         {
-            ulong lastCheckInChannel = BotState.CheckInChannelId;
-            DateTimeOffset lastClearTime = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(-8));
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                // Wait so we're not running at the speed of light
-                await Task.Delay(3000, stoppingToken);
-                try
-                {
-                    // Clear member list at the start of each day
-                    DateTimeOffset currentTime = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(-8));
-                    if (lastClearTime.Day != currentTime.Day)
-                    {
-                        BotState.Members.Clear();
-                        lastClearTime = currentTime;
-                    }
-
-                    // Check if we're connected to discord yet
-                    if (!Client.AllShardsConnected)
-                    {
-                        continue;
-                    }
-
-                    // Update embed to reflect number of members checked in
-                    if (_needToUpdateEmbed || lastCheckInChannel != BotState.CheckInChannelId)
-                    {
-                        await UpdateListMessage();
-                        lastCheckInChannel = BotState.CheckInChannelId;
-
-                        // Update status to reflect number of members checked in
-                        if (_needToUpdateEmbed)
-                        {
-                            await Client.UpdateStatusAsync(new DiscordActivity(
-                                $" {BotState.Members.Count} member{(BotState.Members.Count == 1 ? "" : "s")} in the shop!",
-                                DiscordActivityType.Watching
-                            ));
-                            _needToUpdateEmbed = false;
-                        }
-                    }
-
-                }
-                catch (Exception ex)
-                {
-                    Client.Logger.LogError(ex, "Bot main loop:");
-                }
-            }
+            await Client.DisconnectAsync();
         }
+    }
 
-        /// <summary>
-        /// Resends or updates the list message if it doesn't exist
-        /// </summary>
-        private async Task UpdateListMessage()
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        ulong lastCheckInChannel = BotState.CheckInChannelId;
+        DateTimeOffset lastClearTime = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(-8));
+        while (!stoppingToken.IsCancellationRequested)
         {
-            DiscordMessageBuilder builder = CreateMessage();
-
-            // Check if message exists
-            DiscordChannel channel;
+            // Wait so we're not running at the speed of light
+            await Task.Delay(3000, stoppingToken);
             try
             {
-                channel = await MainGuild.GetChannelAsync(BotState.CheckInChannelId);
+                // Clear member list at the start of each day
+                DateTimeOffset currentTime = DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(-8));
+                if (lastClearTime.Day != currentTime.Day)
+                {
+                    BotState.Members.Clear();
+                    lastClearTime = currentTime;
+                }
+
+                // Check if we're connected to discord yet
+                if (!Client.AllShardsConnected)
+                {
+                    continue;
+                }
+
+                // Update embed to reflect number of members checked in
+                if (_needToUpdateEmbed || lastCheckInChannel != BotState.CheckInChannelId)
+                {
+                    await UpdateListMessage();
+                    lastCheckInChannel = BotState.CheckInChannelId;
+
+                    // Update status to reflect number of members checked in
+                    if (_needToUpdateEmbed)
+                    {
+                        await Client.UpdateStatusAsync(new DiscordActivity(
+                            $" {BotState.Members.Count} member{(BotState.Members.Count == 1 ? "" : "s")} in the shop!",
+                            DiscordActivityType.Watching
+                        ));
+                        _needToUpdateEmbed = false;
+                    }
+                }
+
             }
-            catch (NotFoundException)
+            catch (Exception ex)
+            {
+                Client.Logger.LogError(ex, "Bot main loop:");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Resends or updates the list message if it doesn't exist
+    /// </summary>
+    private async Task UpdateListMessage()
+    {
+        DiscordMessageBuilder builder = CreateMessage();
+
+        // Check if message exists
+        DiscordChannel channel;
+        try
+        {
+            channel = await MainGuild.GetChannelAsync(BotState.CheckInChannelId);
+        }
+        catch (NotFoundException)
+        {
+            return;
+        }
+
+        try
+        {
+            // If it does, update it
+            DiscordMessage message = await channel.GetMessageAsync(BotState.ListMessageId);
+            await message.ModifyAsync(builder);
+        }
+        catch (DiscordException ex)
+        {
+            if (ex is not NotFoundException && ex is not UnauthorizedException)
             {
                 return;
             }
-
-            try
-            {
-                // If it does, update it
-                DiscordMessage message = await channel.GetMessageAsync(BotState.ListMessageId);
-                await message.ModifyAsync(builder);
-            }
-            catch (DiscordException ex)
-            {
-                if (ex is not NotFoundException && ex is not UnauthorizedException)
-                {
-                    return;
-                }
-                // If not, update the config with the new message
-                BotState.ListMessageId = (await channel.SendMessageAsync(builder)).Id;
-                BotState.Save();
-            }
-
+            // If not, update the config with the new message
+            BotState.ListMessageId = (await channel.SendMessageAsync(builder)).Id;
+            BotState.Save();
         }
 
-        /// <summary>
-        /// Returns an embed listing the members in <see cref="Config.Members"/>.
-        /// </summary>
-        /// <returns>An embed listing the checked in members</returns>
-        private DiscordMessageBuilder CreateMessage()
-        {
-            // Create embed without members
-            DiscordEmbedBuilder embed = new DiscordEmbedBuilder()
-                .WithTitle("Members in the Shop")
-                .WithFooter("Made by Kyler 😎")
-                .WithTimestamp(DateTime.Now)
-                .WithColor(new DiscordColor("2ecc71"));
-
-            StringBuilder sb = new(
-                "A list of members currently in the shop (INV-011), kept up to date.\n" +
-                "Check in or out using the button or `/checkinout` command!\n\n"
-            );
-
-            // Add members to description string
-            for (int i = 0; i < BotState.Members.Count; i++)
-            {
-                (DiscordMember member, DateTimeOffset time) = BotState.Members[i];
-
-                sb.AppendLine($"{member.Mention} ({Formatter.Timestamp(time, TimestampFormat.ShortTime)})");
-            }
-
-            // Sad no members message :(
-            if (BotState.Members.Count == 0)
-            {
-                sb.AppendLine("No ones in the shop :(\n" + SadCatASCII);
-            }
-
-            // Add description
-            embed.WithDescription(sb.ToString());
-
-            return new DiscordMessageBuilder()
-                .AddComponents(new DiscordButtonComponent(
-                    DiscordButtonStyle.Success,
-                    "CheckInOutButton",
-                    "Check In or Out"
-                ))
-                .AddEmbed(embed.Build());
-        }
-
-        public static void Register(IHostApplicationBuilder builder)
-        {
-            builder.Services
-                .AddDiscordClient(builder.Configuration["BOT_TOKEN"]!, DiscordIntents.None)
-                .Configure<DiscordConfiguration>(builder.Configuration.GetSection("DiscordBotConfig"))
-                .AddCommandsExtension((_, extension) =>
-                {
-                    // Configure to slash commands
-                    extension.AddProcessor(new SlashCommandProcessor());
-
-                    // Add our commands from our code (anything with the command
-                    // decorator)
-                    extension.AddCommands(Assembly.GetExecutingAssembly());
-                })
-                .ConfigureEventHandlers(events =>
-                {
-                    events.AddEventHandlers<EventHandlers>();
-                })
-                .AddInjectableHostedService<DiscordService>()
-                .ConfigureTypeSection<DiscordServiceOptions>(builder.Configuration);
-        }
-
-        private class EventHandlers(BotState botState, DiscordService service)
-            : IEventHandler<ComponentInteractionCreatedEventArgs>, IEventHandler<SessionCreatedEventArgs>
-        {
-            public Task HandleEventAsync(DiscordClient _, ComponentInteractionCreatedEventArgs e)
-            {
-                if (e.Id != "CheckInOutButton")
-                {
-                    return Task.CompletedTask;
-                }
-
-                return Commands.CheckInOutInternal(e.Interaction, botState);
-            }
-
-            public async Task HandleEventAsync(DiscordClient sender, SessionCreatedEventArgs eventArgs)
-            {
-                // Connecting changes the guild in the cache, so reset it to the one
-                // we like
-                (service.Client.Guilds as IDictionary<ulong, DiscordGuild>)![service.MainGuild.Id] = service.MainGuild;
-
-                // Make sure CurrentMember is not null
-                FieldInfo memberField = typeof(DiscordGuild).GetField("members", BindingFlags.Instance | BindingFlags.NonPublic)!;
-                IDictionary<ulong, DiscordMember> members = (memberField.GetValue(service.MainGuild) as IDictionary<ulong, DiscordMember>)!;
-                members[service.Client.CurrentUser.Id] = await service.MainGuild.GetMemberAsync(service.Client.CurrentUser.Id);
-            }
-        }
     }
 
-    public class DiscordServiceOptions
+    /// <summary>
+    /// Returns an embed listing the members in <see cref="Config.Members"/>.
+    /// </summary>
+    /// <returns>An embed listing the checked in members</returns>
+    private DiscordMessageBuilder CreateMessage()
     {
-        /// <summary>
-        /// The id of the main discord guild of the bot.
-        /// </summary>
-        public ulong MainGuildId { get; set; } = 0;
+        // Create embed without members
+        DiscordEmbedBuilder embed = new DiscordEmbedBuilder()
+            .WithTitle("Members in the Shop")
+            .WithFooter("Made by Kyler 😎")
+            .WithTimestamp(DateTime.Now)
+            .WithColor(new DiscordColor("2ecc71"));
+
+        StringBuilder sb = new(
+            "A list of members currently in the shop (INV-011), kept up to date.\n" +
+            "Check in or out using the button or `/checkinout` command!\n\n"
+        );
+
+        // Add members to description string
+        for (int i = 0; i < BotState.Members.Count; i++)
+        {
+            (DiscordMember member, DateTimeOffset time) = BotState.Members[i];
+
+            sb.AppendLine($"{member.Mention} ({Formatter.Timestamp(time, TimestampFormat.ShortTime)})");
+        }
+
+        // Sad no members message :(
+        if (BotState.Members.Count == 0)
+        {
+            sb.AppendLine("No ones in the shop :(\n" + SadCatASCII);
+        }
+
+        // Add description
+        embed.WithDescription(sb.ToString());
+
+        return new DiscordMessageBuilder()
+            .AddComponents(new DiscordButtonComponent(
+                DiscordButtonStyle.Success,
+                "CheckInOutButton",
+                "Check In or Out"
+            ))
+            .AddEmbed(embed.Build());
     }
+
+    public static void Register(IHostApplicationBuilder builder)
+    {
+        builder.Services
+            .AddDiscordClient(builder.Configuration["BOT_TOKEN"]!, DiscordIntents.None)
+            .Configure<DiscordConfiguration>(builder.Configuration.GetSection("DiscordBotConfig"))
+            .AddCommandsExtension((_, extension) =>
+            {
+                // Configure to slash commands
+                extension.AddProcessor(new SlashCommandProcessor());
+
+                // Add our commands from our code (anything with the command
+                // decorator)
+                extension.AddCommands(Assembly.GetExecutingAssembly());
+            })
+            .ConfigureEventHandlers(events =>
+            {
+                events.AddEventHandlers<EventHandlers>();
+            })
+            .AddInjectableHostedService<DiscordService>()
+            .ConfigureTypeSection<DiscordServiceOptions>(builder.Configuration);
+    }
+
+    private class EventHandlers(BotState botState, DiscordService service)
+        : IEventHandler<ComponentInteractionCreatedEventArgs>, IEventHandler<SessionCreatedEventArgs>
+    {
+        public Task HandleEventAsync(DiscordClient _, ComponentInteractionCreatedEventArgs e)
+        {
+            if (e.Id != "CheckInOutButton")
+            {
+                return Task.CompletedTask;
+            }
+
+            return Commands.CheckInOutInternal(e.Interaction, botState);
+        }
+
+        public async Task HandleEventAsync(DiscordClient sender, SessionCreatedEventArgs eventArgs)
+        {
+            // Connecting changes the guild in the cache, so reset it to the one
+            // we like
+            (service.Client.Guilds as IDictionary<ulong, DiscordGuild>)![service.MainGuild.Id] = service.MainGuild;
+
+            // Make sure CurrentMember is not null
+            FieldInfo memberField = typeof(DiscordGuild).GetField("members", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            IDictionary<ulong, DiscordMember> members = (memberField.GetValue(service.MainGuild) as IDictionary<ulong, DiscordMember>)!;
+            members[service.Client.CurrentUser.Id] = await service.MainGuild.GetMemberAsync(service.Client.CurrentUser.Id);
+        }
+    }
+}
+
+public class DiscordServiceOptions
+{
+    /// <summary>
+    /// The id of the main discord guild of the bot.
+    /// </summary>
+    public ulong MainGuildId { get; set; } = 0;
 }
