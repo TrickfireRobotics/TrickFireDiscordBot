@@ -90,6 +90,16 @@ public static class Commands
         await context.RespondAsync("Finished");
     }
 
+    [Command("checkoutall")]
+    [Description("Checks out all members that are checked in")]
+    [InteractionAllowedContexts(DiscordInteractionContextType.Guild)]
+    [RequirePermissions([], [DiscordPermission.ManageGuild])]
+    public static async Task CheckoutAll(SlashCommandContext context)
+    {
+        context.ServiceProvider.GetRequiredService<BotState>().Members.Clear();
+        await context.RespondAsync("Finished");
+    }
+
     [Command("checkinout")]
     [Description("Checks you into/out of the shop and updates the member list")]
     [InteractionAllowedContexts(DiscordInteractionContextType.Guild)]
