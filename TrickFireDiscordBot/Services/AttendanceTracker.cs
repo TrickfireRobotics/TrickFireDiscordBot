@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using Notion.Client;
 using System.Collections.Specialized;
 using System.Threading.Channels;
+using TrickFireDiscordBot.Services.Notion;
 
 namespace TrickFireDiscordBot.Services;
 
@@ -15,6 +16,7 @@ public class AttendanceTracker(ILogger<AttendanceTracker> logger, INotionClient 
     private readonly Channel<NotifyCollectionChangedEventArgs> channel
         = Channel.CreateUnbounded<NotifyCollectionChangedEventArgs>();
 
+    /// <inheritdoc/>
     public override Task StartAsync(CancellationToken cancellationToken)
     {
         botState.Members.CollectionChanged += OnMembersChange;
@@ -22,6 +24,7 @@ public class AttendanceTracker(ILogger<AttendanceTracker> logger, INotionClient 
         return base.StartAsync(cancellationToken);
     }
 
+    /// <inheritdoc/>
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         await base.StopAsync(cancellationToken);
@@ -34,6 +37,7 @@ public class AttendanceTracker(ILogger<AttendanceTracker> logger, INotionClient 
         channel.Writer.TryWrite(ev);
     }
 
+    /// <inheritdoc/>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -63,10 +67,11 @@ public class AttendanceTracker(ILogger<AttendanceTracker> logger, INotionClient 
                         }
 
                         await MemberCheckedOut(member, time);
+                        await Task.Delay(333, stoppingToken);
                         await MemberCheckedIn(newMember, newTime);
                         break;
                     case NotifyCollectionChangedAction.Reset:
-                        await Reset(DateTimeOffset.Now);
+                        await Reset();
                         break;
                     case NotifyCollectionChangedAction.Move:
                     default:
@@ -88,15 +93,16 @@ public class AttendanceTracker(ILogger<AttendanceTracker> logger, INotionClient 
             return;
         }
 
+        // Update last page with checkout date
+        await Task.Delay(333);
         Page? lastCheckin = await GetLastCheckin(memberPage);
-        int checkinCount = 1;
-        if (lastCheckin != null 
-            && (lastCheckin.Properties["Checked in this Week?"] as FormulaPropertyValue)!.Formula.Boolean == true)
+        if (lastCheckin != null)
         {
-            checkinCount += (int)((lastCheckin.Properties["Checkin Number"] as NumberPropertyValue)!.Number ?? 0);
+            await CheckoutPage(lastCheckin, time.UtcDateTime);
         }
 
-
+        // Create page for most recent checkin
+        await Task.Delay(333);
         await notionClient.Pages.CreateAsync(new PagesCreateParameters()
         {
             Parent = new DatabaseParentInput()
@@ -108,19 +114,45 @@ public class AttendanceTracker(ILogger<AttendanceTracker> logger, INotionClient 
                 { "Member Name", new TitlePropertyValue() { Title = [new RichTextText() { Text = new Text() { Content = member.DisplayName } }] } },
                 { "Member", new RelationPropertyValue() { Relation = [new ObjectId() { Id = memberPage.Id }] } },
                 { "Checkin Time", new DatePropertyValue() { Date = new Date() { Start = time.UtcDateTime, TimeZone = "GMT" } } },
-                { "Checkin Number", new NumberPropertyValue() { Number = checkinCount } },
             }
         });
     }
 
     private async Task MemberCheckedOut(DiscordMember member, DateTimeOffset time)
     {
+        Page? memberPage = await GetMemberNotion(member);
+        if (memberPage == null)
+        {
+            return;
+        }
 
+        // Update last page with checkout date
+        await Task.Delay(333);
+        Page? lastCheckin = await GetLastCheckin(memberPage);
+        if (lastCheckin != null)
+        {
+            await CheckoutPage(lastCheckin, time.UtcDateTime, false);
+        }
     }
 
-    private async Task Reset(DateTimeOffset time)
+    private async Task Reset()
     {
+        Task<PaginatedList<Page>> query(string? cursor)
+        {
+            return notionClient.Databases.QueryAsync(
+                options.Value.MemberAttendanceDatabaseId,
+                new DatabasesQueryParameters()
+                {
+                    Filter = new DateFilter("Checkout Time", isEmpty: true),
+                    StartCursor = cursor
+                }
+            );
+        }
 
+        await foreach (Page page in PaginatedListHelper.GetEnumerable(query))
+        {
+            await CheckoutPage(page);
+        }
     }
 
     private async Task<Page?> GetMemberNotion(DiscordMember member)
@@ -158,6 +190,33 @@ public class AttendanceTracker(ILogger<AttendanceTracker> logger, INotionClient 
                 Sorts = [new Sort() { Property = "Checkin Time", Direction = Direction.Descending }]
             }
         )).Results.FirstOrDefault();
+
+    private async Task CheckoutPage(Page page, DateTime? checkoutTime = null, bool checkedOutByBot = true)
+    {
+        DatePropertyValue checkoutProperty = (page.Properties["Checkout Time"] as DatePropertyValue)!;
+        CheckboxPropertyValue checkedOutByBotProperty = (page.Properties["Checked out by Bot?"] as CheckboxPropertyValue)!;
+        // Only update if checkout time is empty, and has not been checked
+        // out by bot
+        if (checkoutProperty.Date == null && checkedOutByBotProperty.Checkbox != true)
+        {
+            // Update page
+            checkedOutByBotProperty.Checkbox = checkedOutByBot;
+            checkoutProperty.Date = checkoutTime == null ? null : new Date()
+            {
+                Start = checkoutTime,
+                TimeZone = "GMT"
+            };
+            await Task.Delay(333);
+            await notionClient.Pages.UpdatePropertiesAsync(
+                page.Id,
+                new Dictionary<string, PropertyValue>
+                {
+                    { "Checkout Time",  checkoutProperty },
+                    { "Checked out by Bot?", checkedOutByBotProperty }
+                }
+            );
+        }
+    }
 
     public static void Register(IHostApplicationBuilder builder)
     {
