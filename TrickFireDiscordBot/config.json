@@ -16,7 +16,7 @@
     "TechnicalLeadRoleId": 1314341103603810384,
     "TechnicalLeadRegex": "(.* ((Team Lead)|(Mission Director)))|(System Integrator)",
     "InactiveRoleId": 1183543002036174918,
-    "SafeRoleIds": [ 593164234905354261 ]
+    "SafeRoleIds": [ 593164234905354261, 593275442408980550 ]
   },
   "BotStateOptions": {
     "FileLocation": "state.json"

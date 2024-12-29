@@ -75,7 +75,7 @@ public class RoleSyncer(
         DiscordRole inactiveRole = _discordRoleCache.Values.First(role => role.Id == options.Value.InactiveRoleId);
         await foreach (DiscordMember member in discordService.MainGuild.GetAllMembersAsync())
         {
-            if (processedMembers.Contains(member))
+            if (processedMembers.Contains(member) || member.Roles.Any(role => options.Value.SafeRoleIds.Contains(role.Id)))
             {
                 continue;
             }
@@ -113,7 +113,7 @@ public class RoleSyncer(
         {
             try
             {
-                await SyncRoles(await _pageQueue.Reader.ReadAsync(stoppingToken), true);
+                await SyncRoles(await _pageQueue.Reader.ReadAsync(stoppingToken), false);
             }
             catch (Exception ex)
             {
@@ -142,11 +142,6 @@ public class RoleSyncer(
         if (!dryRun)
         {
             int highestRole = discordService.MainGuild.CurrentMember.Roles.Max(role => role.Position);
-            if (member.Roles.Any(role => options.Value.SafeRoleIds.Contains(role.Id)))
-            {
-                return member;
-            }
-
             await member.ModifyAsync(model =>
             {
                 List<DiscordRole> rolesWithLeadership = new(newRoles);
