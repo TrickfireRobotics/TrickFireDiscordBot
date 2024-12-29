@@ -75,7 +75,7 @@ public class RoleSyncer(
         DiscordRole inactiveRole = _discordRoleCache.Values.First(role => role.Id == options.Value.InactiveRoleId);
         await foreach (DiscordMember member in discordService.MainGuild.GetAllMembersAsync())
         {
-            if (processedMembers.Contains(member) || member.Roles.Any(role => options.Value.SafeRoleIds.Contains(role.Id)))
+            if (processedMembers.Contains(member) || member.Roles.Any(role => options.Value.SafeRoleIds.Contains(role.Id) || role.IsManaged))
             {
                 continue;
             }
@@ -84,7 +84,7 @@ public class RoleSyncer(
                 await member.ModifyAsync(model =>
                 {
                     List<DiscordRole> newRoles = new(member.Roles.Where(
-                        role => options.Value.IgnoredRoleIds.Contains(role.Id) || role.IsManaged
+                        role => options.Value.IgnoredRoleIds.Contains(role.Id)
                     ))
                     {
                         inactiveRole
@@ -162,7 +162,7 @@ public class RoleSyncer(
 
                 List<DiscordRole> rolesWithLeadership = new(newRoles);
                 rolesWithLeadership.AddRange(member.Roles.Where(
-                    role => role.Position >= highestRole || options.Value.IgnoredRoleIds.Contains(role.Id) || role.IsManaged
+                    role => role.Position >= highestRole || options.Value.IgnoredRoleIds.Contains(role.Id)
                 ));
 
                 model.Roles = rolesWithLeadership;
