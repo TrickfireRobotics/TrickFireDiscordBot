@@ -121,46 +121,46 @@ public class RoleSyncer(
         }
     }
 
-        private async Task<DiscordMember?> SyncRoles(Page notionPage, bool dryRun = true)
-        {
-            Console.WriteLine(JsonConvert.SerializeObject(notionPage, Formatting.Indented));
+    private async Task<DiscordMember?> SyncRoles(Page notionPage, bool dryRun = true)
+    {
+        Console.WriteLine(JsonConvert.SerializeObject(notionPage, Formatting.Indented));
 
-            DiscordMember? member = await GetMember(notionPage);
-            if (member is null)
+        DiscordMember? member = await GetMember(notionPage);
+        if (member is null)
+        {
+            return null;
+        }
+
+    IEnumerable<DiscordRole> newRoles = await GetRoles(notionPage);
+    logger.LogInformation(member.DisplayName);
+    foreach (DiscordRole role in newRoles)
+    {
+        logger.LogInformation(role!.Name);
+    }
+
+    if (!dryRun)
+    {
+        int highestRole = discordService.MainGuild.CurrentMember.Roles.Max(role => role.Position);
+        await member.ModifyAsync(model =>
+        {
+            List<DiscordRole> rolesWithLeadership = new(newRoles);
+            foreach (DiscordRole role in member.Roles.Where(role => role.Position >= highestRole))
             {
-                return null;
+                rolesWithLeadership.Add(role);
             }
+            model.Roles = rolesWithLeadership;
+        });
+        await Task.Delay(1000);
+    }
 
-        IEnumerable<DiscordRole> newRoles = await GetRoles(notionPage);
-        logger.LogInformation(member.DisplayName);
-        foreach (DiscordRole role in newRoles)
-        {
-            logger.LogInformation(role!.Name);
-        }
+        return member;
+    }
 
-        if (!dryRun)
-        {
-            int highestRole = discordService.MainGuild.CurrentMember.Roles.Max(role => role.Position);
-            await member.ModifyAsync(model =>
-            {
-                List<DiscordRole> rolesWithLeadership = new(newRoles);
-                foreach (DiscordRole role in member.Roles.Where(role => role.Position >= highestRole))
-                {
-                    rolesWithLeadership.Add(role);
-                }
-                model.Roles = rolesWithLeadership;
-            });
-            await Task.Delay(1000);
-        }
-
-            return member;
-        }
-
-        private async Task<DiscordMember?> GetMember(Page notionPage)
-        {
-            // We want this to fail hard if something is wrong
-            string? username = (notionPage.Properties[options.Value.DiscordUsernamePropertyName]
-                as FormulaPropertyValue)!.Formula.String;
+    private async Task<DiscordMember?> GetMember(Page notionPage)
+    {
+        // We want this to fail hard if something is wrong
+        string? username = (notionPage.Properties[options.Value.DiscordUsernamePropertyName]
+            as FormulaPropertyValue)!.Formula.String;
 
         if (string.IsNullOrWhiteSpace(username))
         {
