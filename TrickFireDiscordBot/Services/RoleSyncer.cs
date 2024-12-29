@@ -113,7 +113,7 @@ public class RoleSyncer(
         {
             try
             {
-                await SyncRoles(await _pageQueue.Reader.ReadAsync(stoppingToken, true));
+                await SyncRoles(await _pageQueue.Reader.ReadAsync(stoppingToken), true);
             }
             catch (Exception ex)
             {
