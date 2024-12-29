@@ -142,6 +142,11 @@ public class RoleSyncer(
     if (!dryRun)
     {
         int highestRole = discordService.MainGuild.CurrentMember.Roles.Max(role => role.Position);
+        if (member.Roles.Any(role => options.Value.SafeRoleIds.Contains(role.Id)))
+        {
+            return member;
+        }
+
         await member.ModifyAsync(model =>
         {
             List<DiscordRole> rolesWithLeadership = new(newRoles);
@@ -206,26 +211,36 @@ public class RoleSyncer(
 
         MultiSelectPropertyValue positions = (notionPage.Properties[options.Value.ClubPositionsPropertyName]
             as MultiSelectPropertyValue)!;
-        foreach (SelectOption item in positions.MultiSelect)
+        foreach (SelectOption option in positions.MultiSelect)
         {
-            if (item.Name == "Individual Contributor")
+            if (option.Name == "Individual Contributor")
             {
                 continue;
             }
 
-            if (_technicalLeadRegex.IsMatch(item.Name))
+            if (_technicalLeadRegex.IsMatch(option.Name))
             {
                 roles.Add(_discordRoleCache.Values.First(role => role.Id == options.Value.TechnicalLeadRoleId));
             }
 
             // Remove team suffix to make roles a little easier to read
-            DiscordRole? positionRole = GetRoleOrDefault(item.Name.Replace(" Team", ""));
+            DiscordRole? positionRole = GetRoleOrDefault(option.Name.Replace(" Team", ""));
             if (positionRole is not null)
             {
                 roles.Add(positionRole);
             }
         }
 
+        MultiSelectPropertyValue disciplines = (notionPage.Properties[options.Value.DisciplinesPropertyName]
+            as MultiSelectPropertyValue)!;
+        foreach (SelectOption option in disciplines.MultiSelect)
+        {
+            DiscordRole? positionRole = GetRoleOrDefault(option.Name);
+            if (positionRole is not null)
+            {
+                roles.Add(positionRole);
+            }
+        }
         return roles;
     }
 
@@ -335,22 +350,27 @@ public class RoleSyncerOptions()
     public string MembersDatabaseId { get; set; } = "";
 
     /// <summary>
-    /// The name of the database property for a members' discord username.
+    /// The name of the database property for a member's discord username.
     /// </summary>
     public string DiscordUsernamePropertyName { get; set; } = "";
 
     /// <summary>
-    /// The name of the database property for a members' active status.
+    /// The name of the database property for a member's active status.
     /// </summary>
     public string ActivePropertyName { get; set; } = "";
 
     /// <summary>
-    /// The name of the database property for a members' club positions.
+    /// The name of the database property for a member's club positions.
     /// </summary>
     public string ClubPositionsPropertyName { get; set; } = "";
 
     /// <summary>
-    /// The name of the database property for a members' teams.
+    /// The name of the database property for a member's disciplines.
+    /// </summary>
+    public string DisciplinesPropertyName { get; set; } = "";
+
+    /// <summary>
+    /// The name of the database property for a member's teams.
     /// </summary>
     public string TeamsPropertyName { get; set; } = "";
 
@@ -369,4 +389,9 @@ public class RoleSyncerOptions()
     /// The id of the inactive role.
     /// </summary>
     public ulong InactiveRoleId { get; set; } = 0;
+
+    /// <summary>
+    /// The ids of roles that make their members ignored by the syncer.
+    /// </summary>
+    public HashSet<ulong> SafeRoleIds { get; set; } = [];
 }

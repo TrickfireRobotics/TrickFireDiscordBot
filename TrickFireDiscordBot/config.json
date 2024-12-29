@@ -11,10 +11,12 @@
     "DiscordUsernamePropertyName": "Cleaned Discord",
     "ActivePropertyName": "Active?",
     "ClubPositionsPropertyName": "Club Position(s)",
+    "DisciplinesPropertyName": "Discipline(s)",
     "TeamsPropertyName": "Teams",
     "TechnicalLeadRoleId": 1314341103603810384,
     "TechnicalLeadRegex": "(.* ((Team Lead)|(Mission Director)))|(System Integrator)",
-    "InactiveRoleId": 1183543002036174918
+    "InactiveRoleId": 1183543002036174918,
+    "SafeRoleIds": [ 593164234905354261 ]
   },
   "BotStateOptions": {
     "FileLocation": "state.json"
