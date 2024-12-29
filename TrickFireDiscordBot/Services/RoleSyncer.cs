@@ -79,7 +79,7 @@ public class RoleSyncer(
             {
                 continue;
             }
-            if (!dryRun && member.Roles.Count() == 1 && member.Roles.First() == inactiveRole)
+            if (!dryRun && member.Roles.Count() != 1 || !member.Roles.Contains(inactiveRole))
             {
                 await member.ModifyAsync(model =>
                 {
