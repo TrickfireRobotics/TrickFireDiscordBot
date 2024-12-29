@@ -15,6 +15,7 @@ namespace TrickFireDiscordBot.Services;
 
 public class RoleSyncer(
     ILogger<RoleSyncer> logger,
+    DiscordMessageLogger messageLogger,
     INotionClient notionClient,
     WebhookListener listener,
     DiscordService discordService,
@@ -165,6 +166,7 @@ public class RoleSyncer(
         if (string.IsNullOrWhiteSpace(username))
         {
             logger.LogWarning("User with page url {} has no discord.", notionPage.Url);
+            messageLogger.LogWarning("User with page url {} has no discord.", notionPage.Url);
             return null;
         }
 
@@ -179,6 +181,7 @@ public class RoleSyncer(
             if (search.Count == 0 || search[0].Username != username)
             {
                 logger.LogWarning("Could not find member: {}", username);
+                messageLogger.LogWarning("Could not find member: {}", username);
             }
             else
             {
@@ -300,6 +303,7 @@ public class RoleSyncer(
         if (!_discordRoleCache.TryGetValue(roleName, out DiscordRole? role))
         {
             logger.LogWarning("Could not find role with name: {}", roleName);
+            messageLogger.LogWarning("Could not find role with name: {}", roleName);
         }
 
         return role;

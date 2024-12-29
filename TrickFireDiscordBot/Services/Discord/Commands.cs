@@ -24,8 +24,7 @@ public static class Commands
         SlashCommandContext context,
         [Parameter("channel")]
         [Description("The channel to send checkin messages to")]
-        DiscordChannel channel
-    )
+        DiscordChannel channel)
     {
         // Guild is not null because it cannot be called outsides guilds
         DiscordPermissions permissions = channel.PermissionsFor(context.Guild!.CurrentMember);
@@ -51,13 +50,13 @@ public static class Commands
         catch (NotFoundException) { }
         catch (UnauthorizedException) { }
 
-            // Update channel in config
-            if (state.CheckInChannelId != channel.Id)
-            {
-                state.CheckInChannelId = channel.Id;
-                state.ListMessageId = 0;
-                state.Save();
-            }
+        // Update channel in config
+        if (state.CheckInChannelId != channel.Id)
+        {
+            state.CheckInChannelId = channel.Id;
+            state.ListMessageId = 0;
+            state.Save();
+        }
 
         // Return success
         await context.RespondAsync("Channel succesfully set!");

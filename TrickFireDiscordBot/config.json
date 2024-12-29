@@ -23,5 +23,8 @@
     "MemberAttendanceDatabaseId": "1631fd41-ff5b-80ac-9731-ce912156b2a4",
     "MembersDatabaseId": "1301fd41-ff5b-817a-9a5d-fee3f7572db2",
     "DiscordUsernamePropertyName": "Cleaned Discord"
+  },
+  "DiscordMessageLoggerOptions": {
+    "ChannelId": 1319188721815388231
   }
 }
