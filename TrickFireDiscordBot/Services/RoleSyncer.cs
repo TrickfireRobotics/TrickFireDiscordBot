@@ -81,7 +81,7 @@ public class RoleSyncer(
             }
             if (!dryRun && !member.Roles.Contains(inactiveRole))
             {
-                await member.GrantRoleAsync(inactiveRole);
+                await member.ModifyAsync(model => model.Roles = new List<DiscordRole>() { inactiveRole });
                 await Task.Delay(1000);
             }
             logger.LogInformation("{}, ({})", member.DisplayName, member.Username);
@@ -144,6 +144,13 @@ public class RoleSyncer(
             int highestRole = discordService.MainGuild.CurrentMember.Roles.Max(role => role.Position);
             await member.ModifyAsync(model =>
             {
+                DiscordRole? inactiveRole = newRoles.FirstOrDefault(role => role.Id == options.Value.InactiveRoleId);
+                if (inactiveRole is not null)
+                {
+                    model.Roles = new List<DiscordRole>() { inactiveRole };
+                    return;
+                }
+
                 List<DiscordRole> rolesWithLeadership = new(newRoles);
                 foreach (DiscordRole role in member.Roles.Where(role => role.Position >= highestRole))
                 {
@@ -194,7 +201,7 @@ public class RoleSyncer(
 
     private async Task<IEnumerable<DiscordRole>> GetRoles(Page notionPage)
     {
-        List<DiscordRole> roles = [];
+        HashSet<DiscordRole> roles = [];
 
         DiscordRole? activeRole = GetActiveRole(notionPage);
         if (activeRole is not null)
@@ -202,7 +209,10 @@ public class RoleSyncer(
             roles.Add(activeRole);
         }
 
-        roles.AddRange(await GetTeams(notionPage));
+        foreach (DiscordRole role in await GetTeams(notionPage))
+        {
+            roles.Add(role);
+        }
 
         MultiSelectPropertyValue positions = (notionPage.Properties[options.Value.ClubPositionsPropertyName]
             as MultiSelectPropertyValue)!;
