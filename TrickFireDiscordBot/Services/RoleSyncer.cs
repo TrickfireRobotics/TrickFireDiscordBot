@@ -83,7 +83,9 @@ public class RoleSyncer(
             {
                 await member.ModifyAsync(model =>
                 {
-                    List<DiscordRole> newRoles = new(member.Roles.Where(role => options.Value.IgnoredRoleIds.Contains(role.Id)))
+                    List<DiscordRole> newRoles = new(member.Roles.Where(
+                        role => options.Value.IgnoredRoleIds.Contains(role.Id) || role.IsManaged
+                    ))
                     {
                         inactiveRole
                     };
@@ -160,7 +162,7 @@ public class RoleSyncer(
 
                 List<DiscordRole> rolesWithLeadership = new(newRoles);
                 rolesWithLeadership.AddRange(member.Roles.Where(
-                    role => role.Position >= highestRole || options.Value.IgnoredRoleIds.Contains(role.Id)
+                    role => role.Position >= highestRole || options.Value.IgnoredRoleIds.Contains(role.Id) || role.IsManaged
                 ));
 
                 model.Roles = rolesWithLeadership;
