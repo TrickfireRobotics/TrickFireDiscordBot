@@ -79,9 +79,16 @@ public class RoleSyncer(
             {
                 continue;
             }
-            if (!dryRun && !member.Roles.Contains(inactiveRole))
+            if (!dryRun && member.Roles.Count() == 1 && member.Roles.First() == inactiveRole)
             {
-                await member.ModifyAsync(model => model.Roles = new List<DiscordRole>() { inactiveRole });
+                await member.ModifyAsync(model =>
+                {
+                    List<DiscordRole> newRoles = new(member.Roles.Where(role => options.Value.IgnoredRoleIds.Contains(role.Id)))
+                    {
+                        inactiveRole
+                    };
+                    model.Roles = newRoles;
+                });
                 await Task.Delay(1000);
             }
             logger.LogInformation("{}, ({})", member.DisplayName, member.Username);
@@ -152,10 +159,10 @@ public class RoleSyncer(
                 }
 
                 List<DiscordRole> rolesWithLeadership = new(newRoles);
-                foreach (DiscordRole role in member.Roles.Where(role => role.Position >= highestRole))
-                {
-                    rolesWithLeadership.Add(role);
-                }
+                rolesWithLeadership.AddRange(member.Roles.Where(
+                    role => role.Position >= highestRole || options.Value.IgnoredRoleIds.Contains(role.Id)
+                ));
+
                 model.Roles = rolesWithLeadership;
             });
             await Task.Delay(1000);
@@ -399,4 +406,9 @@ public class RoleSyncerOptions()
     /// The ids of roles that make their members ignored by the syncer.
     /// </summary>
     public HashSet<ulong> SafeRoleIds { get; set; } = [];
+
+    /// <summary>
+    /// The ids of the roles that should not be removed by the syncer.
+    /// </summary>
+    public HashSet<ulong> IgnoredRoleIds { get; set; } = [];
 }
