@@ -113,7 +113,7 @@ public class RoleSyncer(
         {
             try
             {
-                await SyncRoles(await _pageQueue.Reader.ReadAsync(stoppingToken));
+                await SyncRoles(await _pageQueue.Reader.ReadAsync(stoppingToken, true));
             }
             catch (Exception ex)
             {
@@ -132,32 +132,32 @@ public class RoleSyncer(
             return null;
         }
 
-    IEnumerable<DiscordRole> newRoles = await GetRoles(notionPage);
-    logger.LogInformation(member.DisplayName);
-    foreach (DiscordRole role in newRoles)
-    {
-        logger.LogInformation(role!.Name);
-    }
-
-    if (!dryRun)
-    {
-        int highestRole = discordService.MainGuild.CurrentMember.Roles.Max(role => role.Position);
-        if (member.Roles.Any(role => options.Value.SafeRoleIds.Contains(role.Id)))
+        IEnumerable<DiscordRole> newRoles = await GetRoles(notionPage);
+        logger.LogInformation(member.DisplayName);
+        foreach (DiscordRole role in newRoles)
         {
-            return member;
+            logger.LogInformation(role!.Name);
         }
 
-        await member.ModifyAsync(model =>
+        if (!dryRun)
         {
-            List<DiscordRole> rolesWithLeadership = new(newRoles);
-            foreach (DiscordRole role in member.Roles.Where(role => role.Position >= highestRole))
+            int highestRole = discordService.MainGuild.CurrentMember.Roles.Max(role => role.Position);
+            if (member.Roles.Any(role => options.Value.SafeRoleIds.Contains(role.Id)))
             {
-                rolesWithLeadership.Add(role);
+                return member;
             }
-            model.Roles = rolesWithLeadership;
-        });
-        await Task.Delay(1000);
-    }
+
+            await member.ModifyAsync(model =>
+            {
+                List<DiscordRole> rolesWithLeadership = new(newRoles);
+                foreach (DiscordRole role in member.Roles.Where(role => role.Position >= highestRole))
+                {
+                    rolesWithLeadership.Add(role);
+                }
+                model.Roles = rolesWithLeadership;
+            });
+            await Task.Delay(1000);
+        }
 
         return member;
     }
