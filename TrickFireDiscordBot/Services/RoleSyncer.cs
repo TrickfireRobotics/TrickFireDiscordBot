@@ -82,7 +82,7 @@ public class RoleSyncer(
             if (!dryRun && !member.Roles.Contains(inactiveRole))
             {
                 await member.GrantRoleAsync(inactiveRole);
-                await Task.Delay(333);
+                await Task.Delay(1000);
             }
             logger.LogInformation("{}, ({})", member.DisplayName, member.Username);
         }
