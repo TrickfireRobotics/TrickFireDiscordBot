@@ -1,13 +1,15 @@
 ﻿using DSharpPlus.Entities;
+using DSharpPlus.Exceptions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using System.Threading.Channels;
 
 namespace TrickFireDiscordBot.Services.Discord;
 
 public class DiscordMessageLogger(
-    IOptions<DiscordMessageLoggerOptions> options,
+    //IOptions<DiscordMessageLoggerOptions> options,
+    ILogger<DiscordMessageLogger> logger,
+    BotState botState,
     DiscordService discordService) : BackgroundService, IAutoRegisteredService, ILogger
 {
     private readonly Channel<string> queue = Channel.CreateBounded<string>(100);
@@ -29,13 +31,6 @@ public class DiscordMessageLogger(
         queue.Writer.TryWrite($"[{eventId.Id,2}: {logLevel,-12}] {formatter(state, exception)}");
     }
 
-    public override async Task StartAsync(CancellationToken cancellationToken)
-    {
-        channel = await discordService.MainGuild.GetChannelAsync(options.Value.ChannelId);
-
-        await base.StartAsync(cancellationToken);
-    }
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -43,6 +38,8 @@ public class DiscordMessageLogger(
             try
             {
                 string message = await queue.Reader.ReadAsync(stoppingToken);
+
+                DiscordChannel? channel = await GetChannel();
                 if (channel is null)
                 {
                     continue;
@@ -51,11 +48,27 @@ public class DiscordMessageLogger(
                 await channel.SendMessageAsync(message);
                 await Task.Delay(3000, stoppingToken);
             }
-            catch
+            catch (Exception ex)
             {
-                // bad stuff happens
+                logger.LogError(ex, "Main loop errored:");
             }
         }
+    }
+
+    private async Task<DiscordChannel?> GetChannel()
+    {
+        if (channel is null || channel.Id != botState.CheckInChannelId)
+        {
+            try
+            {
+                channel = await discordService.MainGuild.GetChannelAsync(botState.CheckInChannelId);
+            }
+            catch (DiscordException ex)
+            {
+                logger.LogError(ex, "Could not find channel: {}", botState.CheckInChannelId);
+            }
+        }
+        return channel;
     }
 
     public static void Register(IHostApplicationBuilder builder)
@@ -68,5 +81,4 @@ public class DiscordMessageLogger(
 
 public class DiscordMessageLoggerOptions
 {
-    public ulong ChannelId { get; set; } = 0;
 }

@@ -62,6 +62,37 @@ public static class Commands
         await context.RespondAsync("Channel succesfully set!");
     }
 
+    [Command("setloggingchannel")]
+    [Description("Sets the channel the bot sends debug logging messages to")]
+    [InteractionAllowedContexts(DiscordInteractionContextType.Guild)]
+    [RequirePermissions([], [DiscordPermission.ManageGuild])]
+    public static async Task SetLoggingChannel(
+        SlashCommandContext context,
+        [Parameter("channel")]
+        [Description("The channel to send debug messages to")]
+        DiscordChannel channel)
+    {
+        // Guild is not null because it cannot be called outsides guilds
+        DiscordPermissions permissions = channel.PermissionsFor(context.Guild!.CurrentMember);
+        if (!permissions.HasPermission(DiscordPermission.SendMessages) || !permissions.HasPermission(DiscordPermission.ViewChannel))
+        {
+            await context.RespondAsync("Bot does not have permission to send messages in that channel");
+            return;
+        }
+        else if (!permissions.HasPermission(DiscordPermission.ReadMessageHistory))
+        {
+            await context.RespondAsync("Bot does not have permission to read messages in that channel");
+            return;
+        }
+
+        BotState state = context.ServiceProvider.GetRequiredService<BotState>();
+        state.MessageLoggerChannelId = channel.Id;
+        state.Save();
+
+        // Return success
+        await context.RespondAsync("Channel succesfully set!");
+    }
+
     [Command("ping")]
     [Description("Pings the bot to make sure it's not dead")]
     [InteractionAllowedContexts(DiscordInteractionContextType.Guild)]

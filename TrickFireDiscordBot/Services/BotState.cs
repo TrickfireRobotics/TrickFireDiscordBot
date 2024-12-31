@@ -27,6 +27,11 @@ public class BotState : IAutoRegisteredService
     /// </summary>
     public ulong CheckInChannelId { get; set; } = 0;
 
+    /// <summary>
+    /// The id of the channel to log debug messages into.
+    /// </summary>
+    public ulong MessageLoggerChannelId { get; set; } = 0;
+
     private BotStateOptions Options { get; }
 
         public BotState(IOptions<BotStateOptions> options)
