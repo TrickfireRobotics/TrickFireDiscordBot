@@ -92,6 +92,7 @@ internal class Program
 
         // Setup logging
         builder.Logging
+            .SetMinimumLevel(LogLevel.Debug)
             .AddConsole(opt =>
             {
                 opt.FormatterName = "logger";
