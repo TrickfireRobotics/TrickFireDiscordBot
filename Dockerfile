@@ -18,4 +18,5 @@ WORKDIR /data
 # Run the app on container startup
 EXPOSE 8080/tcp
 ENV DOTNET_GCHeapHardLimit=0xF424000
+ENV DOTNET_ENVIRONMENT=Production
 ENTRYPOINT [ "dotnet", "/TrickFireDiscordBot/TrickFireDiscordBot.dll", "/TrickFireDiscordBot/" ]

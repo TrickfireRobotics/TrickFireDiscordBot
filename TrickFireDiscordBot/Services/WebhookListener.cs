@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net;
@@ -66,6 +67,17 @@ public class WebhookListener(ILogger<WebhookListener> logger, IOptions<WebhookLi
 
     public static void Register(IHostApplicationBuilder builder)
     {
+        if (builder.Environment.IsDevelopment())
+        {
+            // I'm going to assume most people can't listen on every ip on their
+            // dev machine, nor receive data from trickfirediscordbot.fly.dev
+            // So just initialize it as a singleton, which doesn't receive start
+            // events
+            builder.Services
+                .AddSingleton<WebhookListener>();
+            return;
+        }
+
         builder.Services
             .AddInjectableHostedService<WebhookListener>()
             .ConfigureTypeSection<WebhookListenerOptions>(builder.Configuration);
