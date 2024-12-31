@@ -84,7 +84,7 @@ public class RoleSyncer(
             {
                 continue;
             }
-            await SyncRoles(member: member, dryRun: dryRun);
+            await SyncRoles(member: member, page: null, dryRun: dryRun);
         }
     }
 
