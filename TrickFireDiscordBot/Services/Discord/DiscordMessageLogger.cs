@@ -57,15 +57,15 @@ public class DiscordMessageLogger(
 
     private async Task<DiscordChannel?> GetChannel()
     {
-        if (channel is null || channel.Id != botState.CheckInChannelId)
+        if (channel is null || channel.Id != botState.MessageLoggerChannelId)
         {
             try
             {
-                channel = await discordService.MainGuild.GetChannelAsync(botState.CheckInChannelId);
+                channel = await discordService.MainGuild.GetChannelAsync(botState.MessageLoggerChannelId);
             }
             catch (DiscordException ex)
             {
-                logger.LogError(ex, "Could not find channel: {}", botState.CheckInChannelId);
+                logger.LogError(ex, "Could not find channel: {}", botState.MessageLoggerChannelId);
             }
         }
         return channel;

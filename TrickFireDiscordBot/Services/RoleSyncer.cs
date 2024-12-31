@@ -1,5 +1,4 @@
-﻿using DSharpPlus;
-using DSharpPlus.Entities;
+﻿using DSharpPlus.Entities;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -26,12 +25,12 @@ public class RoleSyncer(
 
     private readonly Regex _technicalLeadRegex = new(options.Value.TechnicalLeadRegex);
 
-    private static readonly Channel<Page> _pageQueue = Channel.CreateUnbounded<Page>();
+    private static readonly Channel<MemberPage> _pageQueue = Channel.CreateUnbounded<MemberPage>();
 
     private readonly Dictionary<string, DiscordRole> _discordRoleCache = [];
     private string? _teamPageNamePropertyId = null;
 
-
+    /// <inheritdoc/>
     public override Task StartAsync(CancellationToken cancellationToken)
     {
         listener.OnWebhookReceived += OnWebhook;
@@ -43,7 +42,8 @@ public class RoleSyncer(
 
         return base.StartAsync(cancellationToken);
     }
-
+    
+    /// <inheritdoc/>
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         await base.StopAsync(cancellationToken);
@@ -51,6 +51,10 @@ public class RoleSyncer(
         listener.OnWebhookReceived -= OnWebhook;
     }
 
+    /// <summary>
+    /// Syncs the role of all members in the main guild.
+    /// </summary>
+    /// <param name="dryRun">Whether to actually have an effect</param>
     public async Task SyncAllMemberRoles(bool dryRun = true)
     {
         Task<PaginatedList<Page>> nextPageQuery(string? cursor) =>
@@ -62,38 +66,25 @@ public class RoleSyncer(
                 }
             );
 
+        // Get all notion users and sync their roles
         HashSet<DiscordMember?> processedMembers = [];
         await foreach (Page page in PaginatedListHelper.GetEnumerable(nextPageQuery))
         {
             await Task.Delay(333);
-            DiscordMember? member = await SyncRoles(page, dryRun);
+            DiscordMember? member = await SyncRoles(page: new MemberPage(options.Value, page), dryRun: dryRun);
             processedMembers.Add(member);
-            logger.LogInformation("\n");
         }
 
-        logger.LogInformation("\nNo notion page users:");
+        // Get all discord users
         DiscordRole inactiveRole = _discordRoleCache.Values.First(role => role.Id == options.Value.InactiveRoleId);
         await foreach (DiscordMember member in discordService.MainGuild.GetAllMembersAsync())
         {
+            // Filter members already processed or those with safe roles
             if (processedMembers.Contains(member) || member.Roles.Any(role => options.Value.SafeRoleIds.Contains(role.Id) || role.IsManaged))
             {
                 continue;
             }
-            if (!dryRun && member.Roles.Count() != 1 || !member.Roles.Contains(inactiveRole))
-            {
-                await member.ModifyAsync(model =>
-                {
-                    List<DiscordRole> newRoles = new(member.Roles.Where(
-                        role => options.Value.IgnoredRoleIds.Contains(role.Id)
-                    ))
-                    {
-                        inactiveRole
-                    };
-                    model.Roles = newRoles;
-                });
-                await Task.Delay(1000);
-            }
-            logger.LogInformation("{}, ({})", member.DisplayName, member.Username);
+            await SyncRoles(member: member, dryRun: dryRun);
         }
     }
 
@@ -113,16 +104,17 @@ public class RoleSyncer(
             return;
         }
 
-        _pageQueue.Writer.TryWrite(page);
+        _pageQueue.Writer.TryWrite(new MemberPage(options.Value, page));
     }
 
+    /// <inheritdoc/>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                await SyncRoles(await _pageQueue.Reader.ReadAsync(stoppingToken), false);
+                await SyncRoles(page: await _pageQueue.Reader.ReadAsync(stoppingToken), dryRun: false);
             }
             catch (Exception ex)
             {
@@ -131,66 +123,77 @@ public class RoleSyncer(
         }
     }
 
-    private async Task<DiscordMember?> SyncRoles(Page notionPage, bool dryRun = true)
+    private async Task<DiscordMember?> SyncRoles(DiscordMember? member = null, MemberPage? page = null, bool dryRun = true)
     {
-        Console.WriteLine(JsonConvert.SerializeObject(notionPage, Formatting.Indented));
-
-        DiscordMember? member = await GetMember(notionPage);
-        if (member is null)
+        HashSet<DiscordRole> newRoles = [];
+        // If only member is given, mark inactive
+        if (page == null && member is not null)
         {
-            return null;
+            newRoles.Add(_discordRoleCache.Values.First(role => role.Id == options.Value.InactiveRoleId));
         }
-
-        IEnumerable<DiscordRole> newRoles = await GetRoles(notionPage);
-        logger.LogInformation(member.DisplayName);
-        foreach (DiscordRole role in newRoles)
+        // If page is given, get roles from page and member from page (if null)
+        else if (page != null)
         {
-            logger.LogInformation(role!.Name);
-        }
-
-        if (!dryRun)
-        {
-            int highestRole = discordService.MainGuild.CurrentMember.Roles.Max(role => role.Position);
-            await member.ModifyAsync(model =>
+            member ??= await GetMember(page);
+            if (member is null)
             {
-                DiscordRole? inactiveRole = newRoles.FirstOrDefault(role => role.Id == options.Value.InactiveRoleId);
-                if (inactiveRole is not null)
-                {
-                    model.Roles = new List<DiscordRole>() { inactiveRole };
-                    return;
-                }
+                return null;
+            }
+            newRoles.UnionWith(await GetRoles(page));
+        }
+        // If neither are given, give up
+        else
+        {
+            throw new ArgumentNullException("Both `member` and `page` cannot be null", innerException: null);
+        }
 
-                List<DiscordRole> rolesWithLeadership = new(newRoles);
-                rolesWithLeadership.AddRange(member.Roles.Where(
-                    role => role.Position >= highestRole || options.Value.IgnoredRoleIds.Contains(role.Id)
-                ));
+        // Add any roles the bot cant touch
+        int highestRole = discordService.MainGuild.CurrentMember.Roles.Max(role => role.Position);
+        newRoles.UnionWith(member.Roles.Where(
+            role => role.Position >= highestRole || options.Value.IgnoredRoleIds.Contains(role.Id)
+        ));
 
-                model.Roles = rolesWithLeadership;
-            });
+        string logString = string.Join("`, `", newRoles.Select(role => role.Name));
+        logger.LogDebug(
+            "Roles for user `{}` (`{}`): `{}`",
+            member.Username,
+            member.DisplayName,
+            logString
+        );
+        messageLogger.LogDebug(
+            "Roles for user `{}` (`{}`): `{}`",
+            member.Username,
+            member.DisplayName,
+            logString
+        );
+
+        // Change the member's roles if new roles don't match
+        if (!dryRun && !newRoles.SetEquals(member.Roles))
+        {
+            await member.ModifyAsync(model => model.Roles = newRoles.ToList());
             await Task.Delay(1000);
         }
 
         return member;
     }
 
-    private async Task<DiscordMember?> GetMember(Page notionPage)
+    private async Task<DiscordMember?> GetMember(MemberPage page)
     {
-        // We want this to fail hard if something is wrong
-        string? username = (notionPage.Properties[options.Value.DiscordUsernamePropertyName]
-            as FormulaPropertyValue)!.Formula.String;
-
-        if (string.IsNullOrWhiteSpace(username))
+        if (string.IsNullOrWhiteSpace(page.DiscordUsername))
         {
-            logger.LogWarning("User with page url {} has no discord.", notionPage.Url);
-            messageLogger.LogWarning("User with page url {} has no discord.", notionPage.Url);
+            logger.LogWarning("User with page url {} has no discord.", page.Url);
+            messageLogger.LogWarning("User with page url {} has no discord.", page.Url);
             return null;
         }
 
-        username = username.TrimStart('@').ToLower();
+        // Remove superfluous characters that only mess up search
+        string username = page.DiscordUsername.TrimStart('@').ToLower();
 
+        // Check cache for user
         DiscordMember? member = discordService.MainGuild.Members.Values
             .FirstOrDefault(member => member.Username == username);
 
+        // If not in cache, search the guild
         if (member is null)
         {
             IReadOnlyList<DiscordMember> search = await discordService.MainGuild.SearchMembersAsync(username);
@@ -208,48 +211,56 @@ public class RoleSyncer(
         return member;
     }
 
-    private async Task<IEnumerable<DiscordRole>> GetRoles(Page notionPage)
+    #region Role Getting
+    private async Task<IEnumerable<DiscordRole>> GetRoles(MemberPage page)
     {
         HashSet<DiscordRole> roles = [];
 
-        DiscordRole? activeRole = GetActiveRole(notionPage);
+        // Get active role
+        DiscordRole? activeRole = GetActiveRole(page);
         if (activeRole is not null)
         {
             roles.Add(activeRole);
+
+            // If they are inactive, then inactive is the only role they can
+            // have
+            if (activeRole.Id == options.Value.InactiveRoleId)
+            {
+                return roles;
+            }
         }
 
-        foreach (DiscordRole role in await GetTeams(notionPage))
+        // Get roles for teams
+        foreach (DiscordRole role in await GetTeams(page))
         {
             roles.Add(role);
         }
 
-        MultiSelectPropertyValue positions = (notionPage.Properties[options.Value.ClubPositionsPropertyName]
-            as MultiSelectPropertyValue)!;
-        foreach (SelectOption option in positions.MultiSelect)
+        // Get position roles
+        foreach (string positionName in page.PositionNames)
         {
-            if (option.Name == "Individual Contributor")
+            if (positionName == "Individual Contributor")
             {
                 continue;
             }
 
-            if (_technicalLeadRegex.IsMatch(option.Name))
+            if (_technicalLeadRegex.IsMatch(positionName))
             {
                 roles.Add(_discordRoleCache.Values.First(role => role.Id == options.Value.TechnicalLeadRoleId));
             }
 
             // Remove team suffix to make roles a little easier to read
-            DiscordRole? positionRole = GetRoleOrDefault(option.Name.Replace(" Team", ""));
+            DiscordRole? positionRole = GetRoleOrDefault(positionName.Replace(" Team", ""));
             if (positionRole is not null)
             {
                 roles.Add(positionRole);
             }
         }
 
-        MultiSelectPropertyValue disciplines = (notionPage.Properties[options.Value.DisciplinesPropertyName]
-            as MultiSelectPropertyValue)!;
-        foreach (SelectOption option in disciplines.MultiSelect)
+        // Get discipline roles
+        foreach (string disciplineName in page.DisciplineNames)
         {
-            DiscordRole? positionRole = GetRoleOrDefault(option.Name);
+            DiscordRole? positionRole = GetRoleOrDefault(disciplineName);
             if (positionRole is not null)
             {
                 roles.Add(positionRole);
@@ -258,28 +269,24 @@ public class RoleSyncer(
         return roles;
     }
 
-    private DiscordRole? GetActiveRole(Page notionPage)
+    private DiscordRole? GetActiveRole(MemberPage page)
     {
-        string activeValue = (notionPage.Properties[options.Value.ActivePropertyName]
-            as SelectPropertyValue)!.Select.Name;
-        if (activeValue == "Active")
+        if (page.ActiveStatus == "Active")
         {
             return null;
         }
         else
         {
-            return GetRoleOrDefault(activeValue);
+            return GetRoleOrDefault(page.ActiveStatus);
         }
     }
 
-    private async Task<IEnumerable<DiscordRole>> GetTeams(Page notionPage)
+    private async Task<IEnumerable<DiscordRole>> GetTeams(MemberPage page)
     {
         List<DiscordRole> roles = [];
-        List<ObjectId> teamIds = (notionPage.Properties[options.Value.TeamsPropertyName]
-            as RelationPropertyValue)!.Relation;
-        foreach (ObjectId id in teamIds)
+        foreach (string teamId in page.TeamIds)
         {
-            string teamName = await GetTeamName(id);
+            string teamName = await GetTeamName(teamId);
 
             // Remove team suffix to make roles a little easier to read
             DiscordRole? role = GetRoleOrDefault(teamName.Replace(" Team", ""));
@@ -287,13 +294,12 @@ public class RoleSyncer(
             {
                 roles.Add(role);
             }
-
         }
 
         return roles;
     }
 
-    private async Task<string> GetTeamName(ObjectId id)
+    private async Task<string> GetTeamName(string id)
     {
         // Try using our cached property id if it exists
         if (_teamPageNamePropertyId is not null)
@@ -302,7 +308,7 @@ public class RoleSyncer(
             {
                 ListPropertyItem item = (await notionClient.Pages.RetrievePagePropertyItemAsync(new RetrievePropertyItemParameters()
                 {
-                    PageId = id.Id,
+                    PageId = id,
                     PropertyId = _teamPageNamePropertyId
                 }) as ListPropertyItem)!;
                 return (item.Results.First() as TitlePropertyItem)!.Title.PlainText;
@@ -320,13 +326,19 @@ public class RoleSyncer(
         }
 
         // If it doesn't or fails, then recache it and get the whole page
-        Page teamPage = await notionClient.Pages.RetrieveAsync(id.Id);
+        Page teamPage = await notionClient.Pages.RetrieveAsync(id);
         TitlePropertyValue nameValue = (teamPage.Properties[options.Value.TeamNamePropertyName]
             as TitlePropertyValue)!;
         _teamPageNamePropertyId = nameValue.Id;
         return nameValue.Title[0].PlainText;
     }
 
+    /// <summary>
+    /// Gets a role with <paramref name="roleName"/> or null if it cannot find
+    /// it. Also will log a warning if role is not found.
+    /// </summary>
+    /// <param name="roleName">The name of the role to find</param>
+    /// <returns>The role with a matching name, or null</returns>
     private DiscordRole? GetRoleOrDefault(string roleName)
     {
         if (!_discordRoleCache.TryGetValue(roleName, out DiscordRole? role))
@@ -337,12 +349,40 @@ public class RoleSyncer(
 
         return role;
     }
+    #endregion
 
+    /// <inheritdoc/>
     public static void Register(IHostApplicationBuilder builder)
     {
         builder.Services
             .AddInjectableHostedService<RoleSyncer>()
             .ConfigureTypeSection<RoleSyncerOptions>(builder.Configuration);
+    }
+
+    /// <summary>
+    /// A class representing a member's page that's just easier to use
+    /// </summary>
+    private class MemberPage(RoleSyncerOptions options, Page notionPage)
+    {
+        public string? DiscordUsername { get; } = (notionPage.Properties[options.DiscordUsernamePropertyName] as FormulaPropertyValue)
+            !.Formula.String;
+        public string ActiveStatus { get; } = (notionPage.Properties[options.ActivePropertyName] as SelectPropertyValue)
+            !.Select.Name;
+        public string[] PositionNames { get; } = (notionPage.Properties[options.ClubPositionsPropertyName] as MultiSelectPropertyValue)
+            !.MultiSelect.Select(option => option.Name).ToArray();
+        public string[] DisciplineNames { get; } = (notionPage.Properties[options.DisciplinesPropertyName]as MultiSelectPropertyValue)
+            !.MultiSelect.Select(option => option.Name).ToArray();
+
+        /// <summary>
+        /// The PAGE IDS, not the name, of the teams the user is on.
+        /// </summary>
+        public string[] TeamIds { get; } = (notionPage.Properties[options.TeamsPropertyName] as RelationPropertyValue)
+            !.Relation.Select(id => id.Id).ToArray();
+
+        /// <summary>
+        /// The URL pointing to the notion page.
+        /// </summary>
+        public string Url { get; } = notionPage.Url;
     }
 }
 
