@@ -79,8 +79,8 @@ public class RoleSyncer(
         DiscordRole inactiveRole = _discordRoleCache.Values.First(role => role.Id == options.Value.InactiveRoleId);
         await foreach (DiscordMember member in discordService.MainGuild.GetAllMembersAsync())
         {
-            // Filter members already processed or those with safe roles
-            if (processedMembers.Contains(member) || member.Roles.Any(role => options.Value.SafeRoleIds.Contains(role.Id) || role.IsManaged))
+            // Filter members already processed
+            if (processedMembers.Contains(member))
             {
                 continue;
             }
@@ -123,6 +123,36 @@ public class RoleSyncer(
         }
     }
 
+    /// <summary>
+    /// Syncs the roles of the given member with their corresponding Notion page
+    /// if it exists.
+    /// </summary>
+    /// <param name="member">The member to sync the roles of</param>
+    /// <param name="dryRun">Whether to actually affect things or not</param>
+    public async Task SyncRoles(DiscordMember member, bool dryRun = true)
+    {
+        PaginatedList<Page> search = await notionClient.Databases.QueryAsync(
+            options.Value.MembersDatabaseId,
+            new DatabasesQueryParameters()
+            {
+                Filter = new FormulaFilter(options.Value.DiscordUsernamePropertyName, @string: new TextFilter.Condition(equal: member.Username))
+            }
+        );
+
+        MemberPage? page = null;
+        if (search.Results.Count == 1)
+        {
+            page = new MemberPage(options.Value, search.Results[0]);
+        }
+        else
+        {
+            logger.LogWarning("Could not find Notion page for member: {}", member.Username);
+            messageLogger.LogWarning("Could not find Notion page for member: {}", member.Username);
+        }
+
+        await SyncRoles(member: member, page: page, dryRun: dryRun);
+    }
+
     private async Task<DiscordMember?> SyncRoles(DiscordMember? member = null, MemberPage? page = null, bool dryRun = true)
     {
         HashSet<DiscordRole> newRoles = [];
@@ -147,6 +177,15 @@ public class RoleSyncer(
             throw new ArgumentNullException("Both `member` and `page` cannot be null", innerException: null);
         }
 
+        // Don't affect member's whose roles are safe, or who have roles
+        // belonging to bots.
+        if (member.Roles.Any(role => options.Value.SafeRoleIds.Contains(role.Id) || role.IsManaged))
+        {
+            logger.LogDebug("Member ignored during sync: `{}` (`{}`)", member.Username, member.DisplayName);
+            messageLogger.LogDebug("Member ignored during sync: `{}` (`{}`)", member.Username, member.DisplayName);
+            return member;
+        }
+
         // Add any roles the bot cant touch
         int highestRole = discordService.MainGuild.CurrentMember.Roles.Max(role => role.Position);
         newRoles.UnionWith(member.Roles.Where(
@@ -155,13 +194,15 @@ public class RoleSyncer(
 
         string logString = string.Join("`, `", newRoles.Select(role => role.Name));
         logger.LogDebug(
-            "Roles for user `{}` (`{}`): `{}`",
+            "(dry run: `{}`) Roles for user `{}` (`{}`): `{}`",
+            dryRun,
             member.Username,
             member.DisplayName,
             logString
         );
         messageLogger.LogDebug(
-            "Roles for user `{}` (`{}`): `{}`",
+            "(dry run: `{}`) Roles for user `{}` (`{}`): `{}`",
+            dryRun,
             member.Username,
             member.DisplayName,
             logString

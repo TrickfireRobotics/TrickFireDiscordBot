@@ -120,6 +120,24 @@ public static class Commands
         await context.RespondAsync("Finished");
     }
 
+    [Command("resyncmemberroles")]
+    [Description("Resyncs a member's roles with their Notion page")]
+    [InteractionAllowedContexts(DiscordInteractionContextType.Guild)]
+    [RequirePermissions([], [DiscordPermission.ManageGuild])]
+    public static async Task ResyncMemberRoles(
+        SlashCommandContext context,
+        [Parameter("member")]
+        [Description("The member to sync the roles of")]
+        DiscordMember member,
+        [Parameter("dryRun")]
+        [Description("Set to false to actually affect roles")]
+        bool dryRun = true)
+    {
+        await context.DeferResponseAsync();
+        await context.ServiceProvider.GetRequiredService<RoleSyncer>().SyncRoles(member, dryRun);
+        await context.RespondAsync("Finished");
+    }
+
     [Command("checkoutall")]
     [Description("Checks out all members that are checked in")]
     [InteractionAllowedContexts(DiscordInteractionContextType.Guild)]
