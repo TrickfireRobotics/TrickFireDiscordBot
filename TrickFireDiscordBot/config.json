@@ -29,5 +29,11 @@
   },
   "DiscordMessageLoggerOptions": {
     "ChannelId": 1319188721815388231
+  },
+  "RepeatingCalendarEventsOptions": {
+    "RepeatEveryPropertyName": "Repeat Every",
+    "RepeatUntilPropertyName": "Repeat Until",
+    "OriginalEventPropertyName": "Original Repeating Event",
+    "EventTimePropertyName": "Event time"
   }
 }
