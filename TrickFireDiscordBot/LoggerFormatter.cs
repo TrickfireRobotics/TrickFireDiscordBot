@@ -41,7 +41,7 @@ public class LoggerFormatter : ConsoleFormatter, IDisposable
                 LogLevel.Warning => ConsoleColor.Yellow,
                 LogLevel.Error => ConsoleColor.Red,
                 LogLevel.Critical => ConsoleColor.DarkRed,
-                _ => throw new ArgumentException("Invalid log level specified.", nameof(logEntry.LogLevel))
+                _ => throw new ArgumentException("Invalid log level specified.", nameof(logEntry))
             }));
 
             textWriter.Write
@@ -70,6 +70,8 @@ public class LoggerFormatter : ConsoleFormatter, IDisposable
 
     public void Dispose()
     {
+        GC.SuppressFinalize(this);
+
         _optionsReloadToken?.Dispose();
     }
 
