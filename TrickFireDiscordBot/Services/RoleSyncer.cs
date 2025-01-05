@@ -2,11 +2,8 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Newtonsoft.Json;
 using Notion.Client;
-using System.Net;
 using System.Text.RegularExpressions;
-using System.Threading.Channels;
 using TrickFireDiscordBot.Services.Discord;
 using TrickFireDiscordBot.Services.Notion;
 
@@ -19,13 +16,11 @@ public class RoleSyncer(
     WebhookListener listener,
     DiscordService discordService,
     IOptions<RoleSyncerOptions> options)
-    : BackgroundService, IAutoRegisteredService
+    : NotionWebhookService<RoleSyncer.MemberPage>(logger, listener), IAutoRegisteredService
 {
-    public const string WebhookEndpoint = "/members";
+    public override string WebhookEndpoint => "/members";
 
     private readonly Regex _technicalLeadRegex = new(options.Value.TechnicalLeadRegex);
-
-    private static readonly Channel<MemberPage> _pageQueue = Channel.CreateUnbounded<MemberPage>();
 
     private readonly Dictionary<string, DiscordRole> _discordRoleCache = [];
     private string? _teamPageNamePropertyId = null;
@@ -33,8 +28,6 @@ public class RoleSyncer(
     /// <inheritdoc/>
     public override Task StartAsync(CancellationToken cancellationToken)
     {
-        listener.OnWebhookReceived += OnWebhook;
-
         foreach (DiscordRole role in discordService.MainGuild.Roles.Values)
         {
             _discordRoleCache.Add(role.Name, role);
@@ -42,13 +35,10 @@ public class RoleSyncer(
 
         return base.StartAsync(cancellationToken);
     }
-    
-    /// <inheritdoc/>
-    public override async Task StopAsync(CancellationToken cancellationToken)
-    {
-        await base.StopAsync(cancellationToken);
 
-        listener.OnWebhookReceived -= OnWebhook;
+    protected override void OnPageWebhook(Page notionPage)
+    {
+        PageQueue.Writer.TryWrite(new MemberPage(options.Value, notionPage));
     }
 
     /// <summary>
@@ -88,25 +78,6 @@ public class RoleSyncer(
         }
     }
 
-    private void OnWebhook(HttpListenerRequest request)
-    {
-        if (request.RawUrl == null || !request.RawUrl.StartsWith(WebhookEndpoint))
-        {
-            return;
-        }
-
-        using StreamReader reader = new(request.InputStream);
-        string json = reader.ReadToEnd();
-        Automation? automation = JsonConvert.DeserializeObject<Automation>(json);
-        if (automation == null || automation.Data is not Page page)
-        {
-            logger.LogWarning("Could not parse automation: {}", json);
-            return;
-        }
-
-        _pageQueue.Writer.TryWrite(new MemberPage(options.Value, page));
-    }
-
     /// <inheritdoc/>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -114,7 +85,7 @@ public class RoleSyncer(
         {
             try
             {
-                await SyncRoles(page: await _pageQueue.Reader.ReadAsync(stoppingToken), dryRun: false);
+                await SyncRoles(page: await PageQueue.Reader.ReadAsync(stoppingToken), dryRun: false);
             }
             catch (Exception ex)
             {
@@ -403,7 +374,7 @@ public class RoleSyncer(
     /// <summary>
     /// A class representing a member's page that's just easier to use
     /// </summary>
-    private class MemberPage(RoleSyncerOptions options, Page notionPage)
+    public class MemberPage(RoleSyncerOptions options, Page notionPage)
     {
         public string? DiscordUsername { get; } = (notionPage.Properties[options.DiscordUsernamePropertyName] as FormulaPropertyValue)
             !.Formula.String;
