@@ -37,7 +37,7 @@ public class BotState : IAutoRegisteredService
         public BotState(IOptions<BotStateOptions> options)
         {
             Options = options.Value;
-            if (!File.Exists(Options.FileLocation))
+            if (!File.Exists(Options.FileLocation) || string.IsNullOrWhiteSpace(File.ReadAllText(Options.FileLocation)))
             {
                 File.WriteAllText(Options.FileLocation, "{}");
             }
