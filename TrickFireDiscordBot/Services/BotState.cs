@@ -48,7 +48,10 @@ public class BotState : IAutoRegisteredService
 
     public void Save()
     {
-        File.WriteAllText(Options.FileLocation, JsonConvert.SerializeObject(this, Formatting.Indented));
+        lock (this)
+        {
+            File.WriteAllText(Options.FileLocation, JsonConvert.SerializeObject(this, Formatting.Indented));
+        }
     }
 
     public static void Register(IHostApplicationBuilder builder)
