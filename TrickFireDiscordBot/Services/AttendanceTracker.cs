@@ -118,7 +118,7 @@ public class AttendanceTracker(ILogger<AttendanceTracker> logger, INotionClient 
         });
     }
 
-    private async Task MemberCheckedOut(DiscordMember member, DateTimeOffset time)
+    private async Task MemberCheckedOut(DiscordMember member, DateTimeOffset _)
     {
         Page? memberPage = await GetMemberNotion(member);
         if (memberPage == null)
@@ -131,7 +131,7 @@ public class AttendanceTracker(ILogger<AttendanceTracker> logger, INotionClient 
         Page? lastCheckin = await GetLastCheckin(memberPage);
         if (lastCheckin != null)
         {
-            await CheckoutPage(lastCheckin, time.UtcDateTime, false);
+            await CheckoutPage(lastCheckin, DateTime.UtcNow, false);
         }
     }
 
