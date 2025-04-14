@@ -57,10 +57,10 @@ public class RepeatingCalendarEvents(
     private async Task CreateRepeatedMeeting(RepeatedMeeting meeting)
     {
         // Create required pages
-        DateTime eventTime = (DateTime)(meeting.EventTimeStart! + meeting.RepeatEvery!);
+        DateTimeOffset eventTime = meeting.EventTimeStart!.Value + meeting.RepeatEvery!.Value;
 
         // Add one day so that the effective end date is 11:59pm
-        DateTime repeatUntil = meeting.RepeatUntil!.Value.AddDays(1);
+        DateTimeOffset repeatUntil = meeting.RepeatUntil!.Value.AddDays(1);
         while (eventTime < repeatUntil)
         {
             // Create a copy because if not weird stuff happens that I don't
@@ -91,9 +91,9 @@ public class RepeatingCalendarEvents(
     private class RepeatedMeeting
     {
         public TimeSpan? RepeatEvery { get; }
-        public DateTime? EventTimeStart { get; }
+        public DateTimeOffset? EventTimeStart { get; }
         public TimeSpan? EventTimeSpan { get; }
-        public DateTime? RepeatUntil { get; }
+        public DateTimeOffset? RepeatUntil { get; }
         public string? OriginalPageId { get; }
         public Page Page { get; }
 

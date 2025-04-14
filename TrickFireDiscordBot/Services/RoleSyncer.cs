@@ -47,8 +47,8 @@ public class RoleSyncer(
     /// <param name="dryRun">Whether to actually have an effect</param>
     public async Task SyncAllMemberRoles(bool dryRun = true)
     {
-        Task<PaginatedList<Page>> nextPageQuery(string? cursor) =>
-            notionClient.Databases.QueryAsync(
+        async Task<PaginatedList<IWikiDatabase>> nextPageQuery(string? cursor) =>
+            await notionClient.Databases.QueryAsync(
                 options.Value.MembersDatabaseId,
                 new DatabasesQueryParameters()
                 {
@@ -58,8 +58,12 @@ public class RoleSyncer(
 
         // Get all notion users and sync their roles
         HashSet<DiscordMember?> processedMembers = [];
-        await foreach (Page page in PaginatedListHelper.GetEnumerable(nextPageQuery))
+        await foreach (IWikiDatabase wikiDB in PaginatedListHelper.GetEnumerable(nextPageQuery))
         {
+            if (wikiDB is not Page page)
+            {
+                continue;
+            }
             await Task.Delay(333);
             DiscordMember? member = await SyncRoles(page: new MemberPage(options.Value, page), dryRun: dryRun);
             processedMembers.Add(member);
@@ -102,7 +106,7 @@ public class RoleSyncer(
     /// <param name="dryRun">Whether to actually affect things or not</param>
     public async Task SyncRoles(DiscordMember member, bool dryRun = true)
     {
-        PaginatedList<Page> search = await notionClient.Databases.QueryAsync(
+        PaginatedList<IWikiDatabase> search = await notionClient.Databases.QueryAsync(
             options.Value.MembersDatabaseId,
             new DatabasesQueryParameters()
             {
@@ -113,7 +117,7 @@ public class RoleSyncer(
         MemberPage? page = null;
         if (search.Results.Count == 1)
         {
-            page = new MemberPage(options.Value, search.Results[0]);
+            page = new MemberPage(options.Value, (Page)search.Results.First(res => res is Page));
         }
         else
         {

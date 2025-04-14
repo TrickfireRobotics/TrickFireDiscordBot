@@ -10,9 +10,9 @@
   <ItemGroup>
     <PackageReference Include="DSharpPlus" Version="5.0.0-nightly-02443" />
     <PackageReference Include="DSharpPlus.Commands" Version="5.0.0-nightly-02443" />
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
-    <PackageReference Include="Notion.Net" Version="4.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.4" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.4" />
+    <PackageReference Include="Notion.Net" Version="4.3.0" />
   </ItemGroup>
 
   <ItemGroup>

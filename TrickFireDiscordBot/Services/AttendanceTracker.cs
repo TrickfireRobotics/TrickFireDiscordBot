@@ -137,9 +137,9 @@ public class AttendanceTracker(ILogger<AttendanceTracker> logger, INotionClient 
 
     private async Task Reset()
     {
-        Task<PaginatedList<Page>> query(string? cursor)
+        async Task<PaginatedList<IWikiDatabase>> query(string? cursor)
         {
-            return notionClient.Databases.QueryAsync(
+            return await notionClient.Databases.QueryAsync(
                 options.Value.MemberAttendanceDatabaseId,
                 new DatabasesQueryParameters()
                 {
@@ -149,15 +149,19 @@ public class AttendanceTracker(ILogger<AttendanceTracker> logger, INotionClient 
             );
         }
 
-        await foreach (Page page in PaginatedListHelper.GetEnumerable(query))
+        await foreach (IWikiDatabase wikiDB in PaginatedListHelper.GetEnumerable(query))
         {
+            if (wikiDB is not Page page)
+            {
+                continue;
+            }
             await CheckoutPage(page);
         }
     }
 
     private async Task<Page?> GetMemberNotion(DiscordMember member)
     {
-        List<Page> searchResults = (await notionClient.Databases.QueryAsync(
+        List<IWikiDatabase> searchResults = (await notionClient.Databases.QueryAsync(
             options.Value.MembersDatabaseId,
             new DatabasesQueryParameters()
             {
@@ -174,7 +178,7 @@ public class AttendanceTracker(ILogger<AttendanceTracker> logger, INotionClient 
             return null;
         }
 
-        return searchResults[0];
+        return (Page)searchResults.First(res => res is Page);
     }
 
     private async Task<Page?> GetLastCheckin(Page page)
@@ -189,7 +193,7 @@ public class AttendanceTracker(ILogger<AttendanceTracker> logger, INotionClient 
                 PageSize = 1,
                 Sorts = [new Sort() { Property = "Checkin Time", Direction = Direction.Descending }]
             }
-        )).Results.FirstOrDefault();
+        )).Results.FirstOrDefault(res => res is Page) as Page;
 
     private async Task CheckoutPage(Page page, DateTime? checkoutTime = null, bool checkedOutByBot = true)
     {
