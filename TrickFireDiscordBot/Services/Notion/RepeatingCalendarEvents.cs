@@ -30,7 +30,6 @@ public class RepeatingCalendarEvents(
                 Page page = await PageQueue.Reader.ReadAsync(stoppingToken);
                 
                 // Skip if page already has an original event page
-                RelationPropertyValue originalPage = (page.Properties[options.Value.OriginalEventPropertyName] as RelationPropertyValue)!;
                 RepeatedMeeting meeting = new(options.Value, page);
                 if (meeting.OriginalPageId != null || meeting.RepeatEvery == null 
                     || meeting.RepeatUntil == null || meeting.EventTimeStart == null
@@ -39,8 +38,25 @@ public class RepeatingCalendarEvents(
                     continue;
                 }
 
-                // Add given page to original event page
+                // Add given page to original event page and fix timezone on event time
+                RelationPropertyValue originalPage = (page.Properties[options.Value.OriginalEventPropertyName] as RelationPropertyValue)!;
+                DatePropertyValue eventTime = (page.Properties[options.Value.EventTimePropertyName] as DatePropertyValue)!;
+
                 originalPage.Relation.Add(new ObjectId() { Id = page.Id });
+
+                if (eventTime.Date.Start is not null)
+                {
+                    eventTime.Date.Start = meeting.EventTimeStart.Value;
+                }
+                if (eventTime.Date.End is not null)
+                {
+                    eventTime.Date.End = meeting.EventTimeStart.Value + meeting.EventTimeSpan.Value;
+                }
+
+                // This is complicated. The tz offset exists in the meeting object,
+                // but the json serializer strips the offset, so we need to add the
+                // timezone to readd the data
+                eventTime.Date.TimeZone = options.Value.TimeZone;
                 await notionClient.Pages.UpdatePropertiesAsync(page.Id, page.Properties, stoppingToken);
                 await Task.Delay(333, stoppingToken);
 
@@ -70,6 +86,12 @@ public class RepeatingCalendarEvents(
             DatePropertyValue eventTimeProperty = (properties[options.Value.EventTimePropertyName] as DatePropertyValue)!;
             eventTimeProperty.Date.Start = eventTime;
             eventTimeProperty.Date.End = eventTime + meeting.EventTimeSpan!;
+
+            // This is complicated. The tz offset exists in the meeting object,
+            // but the json serializer strips the offset, so we need to add the
+            // timezone to readd the data
+            eventTimeProperty.Date.TimeZone = options.Value.TimeZone;
+
             await notionClient.Pages.CreateAsync(new PagesCreateParameters()
             {
                 Properties = properties,
@@ -103,7 +125,11 @@ public class RepeatingCalendarEvents(
             RepeatEvery = repeatEveryProperty.Date.End - repeatEveryProperty.Date.Start;
 
             DatePropertyValue eventTimeProperty = (page.Properties[options.EventTimePropertyName] as DatePropertyValue)!;
-            EventTimeStart = eventTimeProperty.Date.Start;
+            if (eventTimeProperty.Date.Start is not null)
+            {
+                TimeZoneInfo pstZone = TimeZoneInfo.FindSystemTimeZoneById(options.TimeZone);
+                EventTimeStart = TimeZoneInfo.ConvertTime(eventTimeProperty.Date.Start.Value, pstZone);
+            }
             EventTimeSpan = eventTimeProperty.Date.End - EventTimeStart;
             RepeatUntil = (page.Properties[options.RepeatUntilPropertyName] as DatePropertyValue)!.Date.Start;
 
@@ -138,4 +164,9 @@ public class RepeatingCalendarEventsOptions
     /// The name of the database property for a repeated meeting's event time
     /// </summary>
     public string EventTimePropertyName { get; set; } = "";
+
+    /// <summary>
+    /// The timezone that should be used for all events
+    /// </summary>
+    public string TimeZone { get; set; } = "";
 }
