@@ -24,7 +24,10 @@ public static class Commands
         SlashCommandContext context,
         [Parameter("channel")]
         [Description("The channel to send checkin messages to")]
-        DiscordChannel channel)
+        DiscordChannel channel,
+        [Parameter("messageid")]
+        [Description("The message id to use as the checkin message")]
+        ulong? messageId = null)
     {
         // Guild is not null because it cannot be called outsides guilds
         DiscordPermissions permissions = channel.PermissionsFor(context.Guild!.CurrentMember);
@@ -39,24 +42,69 @@ public static class Commands
             return;
         }
 
+        // Validate message
+        DiscordMessage? message = null;
+        if (messageId is not null)
+        {
+            // Try to fetch message
+            try
+            {
+                message = await channel.GetMessageAsync(messageId.Value);
+            }
+            catch (NotFoundException) { }
+            catch (UnauthorizedException) 
+            {
+                await context.RespondAsync("Improper permissions to get message");
+            }
+
+            if (message is null)
+            {
+                await context.RespondAsync("Message not found");
+                return;
+            }
+
+            // Fail if bot isn't message author or message channel doesn't match
+            // passed in channel
+            if (message.Author?.Id != context.Client.CurrentUser.Id)
+            {
+                await context.RespondAsync("Message must have been sent by bot");
+                return;
+            }
+            else if (message.ChannelId != channel.Id)
+            {
+                await context.RespondAsync("Message must be sent in same channel as inputted");
+                return;
+            }
+        }
+
         // Delete old message
         BotState state = context.ServiceProvider.GetRequiredService<BotState>();
         try
         {
-            DiscordChannel oldChannel = await context.Guild!.GetChannelAsync(state.CheckInChannelId);
-            DiscordMessage message = await oldChannel.GetMessageAsync(state.ListMessageId);
-            await message.DeleteAsync();
+            if (message is null || message.Id != state.ListMessageId)
+            {
+                DiscordChannel oldChannel = await context.Guild!.GetChannelAsync(state.CheckInChannelId);
+                DiscordMessage oldMessage = await oldChannel.GetMessageAsync(state.ListMessageId);
+                await oldMessage.DeleteAsync();
+            }
         }
         catch (NotFoundException) { }
         catch (UnauthorizedException) { }
 
-        // Update channel in config
+        // Update settings in config
         if (state.CheckInChannelId != channel.Id)
         {
             state.CheckInChannelId = channel.Id;
-            state.ListMessageId = 0;
-            state.Save();
         }
+        if (message is not null && state.ListMessageId != message.Id)
+        {
+            state.ListMessageId = message.Id;
+        }
+        else if (message is null)
+        {
+            state.ListMessageId = 0;
+        }
+        state.Save();
 
         // Return success
         await context.RespondAsync("Channel succesfully set!");
