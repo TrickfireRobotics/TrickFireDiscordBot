@@ -131,10 +131,12 @@ public class RoleSyncer(
     private async Task<DiscordMember?> SyncRoles(DiscordMember? member = null, MemberPage? page = null, bool dryRun = true)
     {
         HashSet<DiscordRole> newRoles = [];
+        DiscordRole inactiveRole = _discordRoleCache.Values.First(role => role.Id == options.Value.InactiveRoleId);
+
         // If only member is given, mark inactive
         if (page == null && member is not null)
         {
-            newRoles.Add(_discordRoleCache.Values.First(role => role.Id == options.Value.InactiveRoleId));
+            newRoles.Add(inactiveRole);
         }
         // If page is given, get roles from page and member from page (if null)
         else if (page != null)
@@ -188,6 +190,36 @@ public class RoleSyncer(
         {
             await member.ModifyAsync(model => model.Roles = newRoles.ToList());
             await Task.Delay(1000);
+        }
+
+        // Notify member if they are newly marked as inactive
+        if (!dryRun && newRoles.Contains(inactiveRole) && !member.Roles.Contains(inactiveRole))
+        {
+            try
+            {
+                await member.SendMessageAsync(options.Value.InactiveMessage);
+                logger.LogDebug("Member sent inactive message: `{}` (`{}`)", member.Username, member.DisplayName);
+                messageLogger.LogDebug("Member sent inactive message: `{}` (`{}`)", member.Username, member.DisplayName);
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(
+                    "Failed to send member `{}` (`{}`) inactive message sent inactive message: {}",
+                    member.Username, 
+                    member.DisplayName, 
+                    ex
+                );
+                messageLogger.LogDebug(
+                    "Failed to send member `{}` (`{}`) inactive message sent inactive message: {}",
+                    member.Username,
+                    member.DisplayName,
+                    ex
+                );
+            }
+            finally
+            {
+                await Task.Delay(3000);
+            }
         }
 
         return member;
@@ -469,4 +501,9 @@ public class RoleSyncerOptions()
     /// The ids of the roles that should not be removed by the syncer.
     /// </summary>
     public HashSet<ulong> IgnoredRoleIds { get; set; } = [];
+
+    /// <summary>
+    /// The message sent to inactive members when they are marked as inactive.
+    /// </summary>
+    public string InactiveMessage { get; set; } = "";
 }
