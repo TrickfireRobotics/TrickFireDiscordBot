@@ -36,15 +36,18 @@ public class DiscordService : BackgroundService, IAutoRegisteredService
     /// </summary>
     public DiscordClient Client { get; }
 
+    public DiscordServiceOptions Options { get; }
     public DiscordGuild MainGuild { get; }
 
     private BotState BotState => Client.ServiceProvider.GetRequiredService<BotState>();
 
+    private DiscordChannel? _welcomeChannel = null;
     private bool _needToUpdateEmbed = true;
 
     public DiscordService(DiscordClient client, IOptions<DiscordServiceOptions> options)
     {
         Client = client;
+        Options = options.Value;
         MainGuild = client.GetGuildAsync(options.Value.MainGuildId).GetAwaiter().GetResult();
 
         // Subscribe to updates of member list
@@ -67,7 +70,8 @@ public class DiscordService : BackgroundService, IAutoRegisteredService
                     "Member collection changed: {}\nOld items: {}\nNew items: {}",
                     ev.Action.ToString(),
                     string.Join(", ", oldItems),
-                    string.Join(", ", newItems));
+                    string.Join(", ", newItems)
+                );
             }
         };
     }
@@ -227,7 +231,7 @@ public class DiscordService : BackgroundService, IAutoRegisteredService
     public static void Register(IHostApplicationBuilder builder)
     {
         builder.Services
-            .AddDiscordClient(builder.Configuration["BOT_TOKEN"]!, DiscordIntents.None)
+            .AddDiscordClient(builder.Configuration["BOT_TOKEN"]!, DiscordIntents.GuildMembers)
             .Configure<DiscordConfiguration>(builder.Configuration.GetSection("DiscordBotConfig"))
             .AddCommandsExtension((_, extension) =>
             {
@@ -247,7 +251,8 @@ public class DiscordService : BackgroundService, IAutoRegisteredService
     }
 
     private class EventHandlers(BotState botState, DiscordService service)
-        : IEventHandler<ComponentInteractionCreatedEventArgs>, IEventHandler<SessionCreatedEventArgs>
+        : IEventHandler<ComponentInteractionCreatedEventArgs>, 
+          IEventHandler<SessionCreatedEventArgs>, IEventHandler<GuildMemberAddedEventArgs>
     {
         public Task HandleEventAsync(DiscordClient _, ComponentInteractionCreatedEventArgs e)
         {
@@ -270,6 +275,28 @@ public class DiscordService : BackgroundService, IAutoRegisteredService
             IDictionary<ulong, DiscordMember> members = (memberField.GetValue(service.MainGuild) as IDictionary<ulong, DiscordMember>)!;
             members[service.Client.CurrentUser.Id] = await service.MainGuild.GetMemberAsync(service.Client.CurrentUser.Id);
         }
+
+        public async Task HandleEventAsync(DiscordClient sender, GuildMemberAddedEventArgs eventArgs)
+        {
+            // Skip if no channel set, else set welcome channel cache
+            if (eventArgs.Guild.SystemChannelId == null)
+            {
+                return;
+            }
+
+            service._welcomeChannel ??= await eventArgs.Guild.GetChannelAsync(eventArgs.Guild.SystemChannelId.Value);
+
+            // Send join message
+            try
+            {
+                string message = string.Format(service.Options.JoinMessage, eventArgs.Member.Mention);
+                await service._welcomeChannel.SendMessageAsync(message);
+            }
+            catch (Exception ex)
+            {
+                sender.Logger.LogError(ex, "Failed to send welcome message:");   
+            }
+        }
     }
 }
 
@@ -279,4 +306,11 @@ public class DiscordServiceOptions
     /// The id of the main discord guild of the bot.
     /// </summary>
     public ulong MainGuildId { get; set; } = 0;
+
+    /// <summary>
+    /// The join message sent in the server whenever a user joins.
+    /// 
+    /// `{0}` can be used to place the user's ping in place of it.
+    /// </summary>
+    public string JoinMessage { get; set; } = "";
 }
