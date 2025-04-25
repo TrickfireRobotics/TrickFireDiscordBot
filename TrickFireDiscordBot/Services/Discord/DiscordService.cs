@@ -289,8 +289,10 @@ public class DiscordService : BackgroundService, IAutoRegisteredService
             // Send join message
             try
             {
-                string message = string.Format(service.Options.JoinMessage, eventArgs.Member.Mention);
-                await service._welcomeChannel.SendMessageAsync(message);
+                string content = string.Format(service.Options.JoinMessage, eventArgs.Member.Mention);
+                DiscordMessage message = await service._welcomeChannel.SendMessageAsync(content);
+                await Task.Delay(1000);
+                await message.ModifyEmbedSuppressionAsync(true);
             }
             catch (Exception ex)
             {
