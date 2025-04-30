@@ -1,7 +1,7 @@
 {
   "DiscordServiceOptions": {
     "MainGuildId": 541737196915261462,
-    "JoinMessage": "Welcome to TrickFire Robotics {0}! Be sure to\n- join our [Notion](https://www.notion.so/team/1301fd41-ff5b-8146-b752-00422914e7e8/join)\n- setup your member page (instructions on the homepage of Notion)\n- add your availability to [Schej](https://schej.it/e/7aDA2)\n- change your nickname to your first and last name\nWe're excited to have you!"
+    "JoinMessage": "Welcome to TrickFire Robotics {0}! Be sure to\n- join our [Notion](https://www.notion.so/trickfire/invite/d3549ba6387d94a9454679a4082d848706d1dd29)\n- setup your member page (instructions on the homepage of Notion)\n- add your availability to [Schej](https://schej.it/e/7aDA2)\n- change your nickname to your first and last initial\nWe're excited to have you!"
   },
   "RoleSyncerOptions": {
     "CheckInChannelId": 1301043511696818196,
