@@ -21,6 +21,10 @@ public class CheckInOutService
         "　／￣|　　 |　|　|\r\n" +
         "　| (￣ヽ＿\\_ヽ\\_)\\_\\_)\r\n" +
         "　＼二つ";
+    private const string InteractionId = "CheckInOutButton";
+
+    private static readonly Random random = new();
+
     private BotState BotState { get; }
     private DiscordService Discord { get; }
 
@@ -39,6 +43,9 @@ public class CheckInOutService
             {
                 _needToUpdateEmbed = true;
 
+                // TODO: Those without a nickname will throw an error here if
+                // they're signed in between restarts since username isn't
+                // serialized with member
                 IEnumerable<string> oldItems = (ev.OldItems ?? new List<string>())
                     .Cast<(DiscordMember, DateTimeOffset)>()
                     .Select(val => val.Item1.DisplayName);
@@ -181,10 +188,20 @@ public class CheckInOutService
         return new DiscordMessageBuilder()
             .AddActionRowComponent(new DiscordButtonComponent(
                 DiscordButtonStyle.Success,
-                "CheckInOutButton",
+                InteractionId,
                 "Check In or Out"
             ))
             .AddEmbed(embed.Build());
+    }
+
+    public Task HandleEventAsync(DiscordClient _, ComponentInteractionCreatedEventArgs e)
+    {
+        if (e.Id != InteractionId)
+        {
+            return Task.CompletedTask;
+        }
+
+        return CheckInOutInternal(e.Interaction);
     }
 
     /// <inheritdoc/>
@@ -194,13 +211,76 @@ public class CheckInOutService
             .AddInjectableHostedService<CheckInOutService>();
     }
 
-    public Task HandleEventAsync(DiscordClient _, ComponentInteractionCreatedEventArgs e)
+    internal async Task CheckInOutInternal(DiscordInteraction interaction)
     {
-        if (e.Id != "CheckInOutButton")
+        await interaction.DeferAsync(true);
+
+        // Member is not since this command cannot be called outside of
+        // guilds
+        DiscordMember member = (interaction.User as DiscordMember)!;
+
+        // Find index of member in list
+        int memberIndex = -1;
+        for (int i = 0; i < BotState.Members.Count; i++)
         {
-            return Task.CompletedTask;
+            if (BotState.Members[i].member.Id == member.Id)
+            {
+                memberIndex = i;
+                BotState.Members[i] = (member, BotState.Members[i].time);
+                break;
+            }
         }
 
-        return Commands.CheckInOutInternal(e.Interaction, BotState);
+        // Update member list
+        if (memberIndex == -1)
+        {
+            BotState.Members.Add((member, interaction.CreationTimestamp));
+        }
+        else
+        {
+            BotState.Members.RemoveAt(memberIndex);
+        }
+
+        // Send confirmation response
+        DiscordFollowupMessageBuilder builder = new() { IsEphemeral = true };
+        if (memberIndex == -1)
+        {
+            builder.WithContent("Checked in. " + GetCheckInMessage());
+        }
+        else
+        {
+            builder.WithContent($"Checked out. " + GetCheckOutMessage());
+        }
+        await interaction.CreateFollowupMessageAsync(builder);
     }
+
+    // Make a fake weighted random using range checking
+    /// <summary>
+    /// Returns a random checkin message.
+    /// </summary>
+    /// <returns>a random checkin message</returns>
+    private static string GetCheckInMessage()
+        => random.Next(100) switch
+        {
+            < 5 => "Make sure to duck when near the arm!",
+            >= 5 and < 15 => "Safety is definitely NOT a suggestion (>ᴗ<)!",
+            >= 15 and < 25 => "Do NOT break a leg (there will be too much paperwork)",
+            >= 25 and < 35 => "Remember to pray to the old rover when you walk past it!",
+            >= 35 and < 40 => "Good luck! (you'll need it)",
+            _ => "Welcome to the shop!"
+        };
+
+    /// <summary>
+    /// Returns a random checkout message.
+    /// </summary>
+    /// <returns>a random checkout message.</returns>
+    private static string GetCheckOutMessage()
+        => random.Next(100) switch
+        {
+            < 5 => "Trickfire is not responsible for any lost or damaged limbs /j",
+            >= 5 and < 15 => "You will be paid in exposure soon!",
+            >= 15 and < 35 => "Hope you had lots of fun!",
+            >= 35 and < 40 => "do i have to sound excited all the time?",
+            _ => "Thanks for all the good work!"
+        };
 }
