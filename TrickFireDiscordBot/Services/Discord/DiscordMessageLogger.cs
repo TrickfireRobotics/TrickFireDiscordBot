@@ -8,7 +8,6 @@ using System.Threading.Channels;
 namespace TrickFireDiscordBot.Services.Discord;
 
 public class DiscordMessageLogger(
-    //IOptions<DiscordMessageLoggerOptions> options,
     ILogger<DiscordMessageLogger> logger,
     BotState botState,
     DiscordService discordService) : BackgroundService, IAutoRegisteredService, ILogger

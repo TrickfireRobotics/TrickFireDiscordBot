@@ -72,6 +72,63 @@ public static class Commands
         await context.RespondAsync("Channel succesfully set!");
     }
 
+    [Command("setfeedbackchannels")]
+    [Description("Sets the channels the bot sends feedback messages and embed to")]
+    [InteractionAllowedContexts(DiscordInteractionContextType.Guild)]
+    [RequirePermissions([], [DiscordPermission.ManageGuild])]
+    public static async Task SetFeedbackChannels(
+        SlashCommandContext context,
+        [Parameter("feedbackchannel")]
+        [Description("The channel to feedback to")]
+        DiscordChannel feedbackChannel,
+        [Parameter("formchannel")]
+        [Description("The channel to send the feedback form to")]
+        DiscordChannel formChannel,
+        [Parameter("formmessageid")]
+        [Description("The message id of the form message")]
+        ulong? formMessageId = null)
+    {
+        // Check permissions and existence of message
+        (DiscordMessage? message, string? res) = await CheckChannelAndMessagePerms(
+            formChannel, formMessageId, context.Guild!
+        );
+        res ??= CheckChannelPerms(feedbackChannel, context.Guild!);
+        if (res is not null)
+        {
+            await context.RespondAsync(res);
+            return;
+        }
+
+        // Delete old message
+        BotState state = context.ServiceProvider.GetRequiredService<BotState>();
+        (state.FeedbackFormChannelId, state.FeedbackFormMessageId) = await DeleteOldChannelMessageAndUpdate(
+            formChannel, state.FeedbackFormChannelId, message, state.FeedbackFormMessageId, context.Guild!
+        );
+
+        // Send new channel if old one was deleted
+        if (state.FeedbackFormMessageId == 0)
+        {
+            try
+            {
+                DiscordMessage newMessage = await formChannel.SendMessageAsync(
+                    context.ServiceProvider.GetRequiredService<FeedbackService>().formMessage
+                );
+                state.FeedbackFormMessageId = newMessage.Id;
+            }
+            catch (DiscordException)
+            {
+                await context.RespondAsync("Failed to send new feedback form message. Old one was still deleted");
+                return;
+            }
+        }
+
+        state.FeedbackChannelId = feedbackChannel.Id;
+        state.Save();
+
+        // Return success
+        await context.RespondAsync("Channel succesfully set!");
+    }
+
     [Command("ping")]
     [Description("Pings the bot to make sure it's not dead")]
     [InteractionAllowedContexts(DiscordInteractionContextType.Guild)]
@@ -133,7 +190,7 @@ public static class Commands
     public static Task CheckInOut(SlashCommandContext context)
     {
         return context.ServiceProvider.GetRequiredService<CheckInOutService>().CheckInOutInternal(context.Interaction);
-                }
+    }
 
     /// <summary>
     /// Checks the given channel for the read message history and send message
