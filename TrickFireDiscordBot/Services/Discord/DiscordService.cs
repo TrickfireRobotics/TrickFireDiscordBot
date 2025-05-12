@@ -220,7 +220,7 @@ public class DiscordService : BackgroundService, IAutoRegisteredService
         embed.WithDescription(sb.ToString());
 
         return new DiscordMessageBuilder()
-            .AddComponents(new DiscordButtonComponent(
+            .AddActionRowComponent(new DiscordButtonComponent(
                 DiscordButtonStyle.Success,
                 "CheckInOutButton",
                 "Check In or Out"

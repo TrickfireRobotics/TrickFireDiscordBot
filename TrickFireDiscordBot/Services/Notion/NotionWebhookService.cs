@@ -14,6 +14,7 @@ namespace TrickFireDiscordBot.Services.Notion;
 /// <typeparam name="QueueT">The type of the <see cref="PageQueue"/></typeparam>
 /// <param name="logger">The logger for this service</param>
 /// <param name="webhookListener">The webhook listener for this service</param>
+/// </summary>
 public abstract class NotionWebhookService<QueueT>(ILogger logger, WebhookListener webhookListener) : BackgroundService
 {
     /// <summary>

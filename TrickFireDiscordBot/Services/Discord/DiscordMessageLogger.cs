@@ -133,11 +133,6 @@ public class DiscordMessageLogger(
     public static void Register(IHostApplicationBuilder builder)
     {
         builder.Services
-            .AddInjectableHostedService<DiscordMessageLogger>()
-            .ConfigureTypeSection<DiscordMessageLoggerOptions>(builder.Configuration);
+            .AddInjectableHostedService<DiscordMessageLogger>();
     }
-}
-
-public class DiscordMessageLoggerOptions
-{
 }

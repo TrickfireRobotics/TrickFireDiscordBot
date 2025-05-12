@@ -4,8 +4,6 @@
     "JoinMessage": "Welcome to TrickFire Robotics {0}! Be sure to\n- join our [Notion](https://www.notion.so/trickfire/invite/d3549ba6387d94a9454679a4082d848706d1dd29)\n- setup your member page (instructions on the homepage of Notion)\n- add your availability to [Schej](https://schej.it/e/7aDA2)\n- change your nickname to your first and last initial\nWe're excited to have you!"
   },
   "RoleSyncerOptions": {
-    "CheckInChannelId": 1301043511696818196,
-    "ListMessageId": 1301083095818309642,
     "TeamsDatabaseId": "1301fd41-ff5b-81f2-8a91-f837f0ea28a4",
     "TeamNamePropertyName": "Team name",
     "MembersDatabaseId": "1301fd41-ff5b-817a-9a5d-fee3f7572db2",
@@ -28,9 +26,6 @@
     "MemberAttendanceDatabaseId": "1631fd41-ff5b-80ac-9731-ce912156b2a4",
     "MembersDatabaseId": "1301fd41-ff5b-817a-9a5d-fee3f7572db2",
     "DiscordUsernamePropertyName": "Cleaned Discord"
-  },
-  "DiscordMessageLoggerOptions": {
-    "ChannelId": 1319188721815388231
   },
   "RepeatingCalendarEventsOptions": {
     "RepeatEveryPropertyName": "Repeat Every",
