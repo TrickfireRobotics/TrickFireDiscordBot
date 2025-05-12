@@ -84,6 +84,7 @@ public class FeedbackService(IOptions<FeedbackServiceOptions> options, BotState 
             DiscordChannel channel = await discord.MainGuild.GetChannelAsync(botState.FeedbackFormChannelId);
             DiscordMessage message = await channel.GetMessageAsync(botState.FeedbackFormMessageId);
             await message.ModifyAsync(formMessage);
+            await Task.Delay(3000, cancellationToken);
         }
         catch (DiscordException)
         {

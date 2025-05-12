@@ -48,6 +48,11 @@ public class BotState : IAutoRegisteredService
     /// </summary>
     public ulong FeedbackFormMessageId { get; set; } = 0;
 
+    /// <summary>
+    /// The id of the club info message.
+    /// </summary>
+    public ulong ClubInfoMessageId { get; set; } = 0;
+
     private BotStateOptions Options { get; }
 
         public BotState(IOptions<BotStateOptions> options)
