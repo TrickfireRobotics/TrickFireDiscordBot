@@ -123,7 +123,7 @@ public class DiscordService : BackgroundService, IAutoRegisteredService
                 }
 
                 // Update embed to reflect number of members checked in
-                if (_needToUpdateEmbed || lastCheckInChannel != BotState.CheckInChannelId)
+                if (_needToUpdateEmbed || lastCheckInChannel != BotState.CheckInChannelId || BotState.ListMessageId == 0)
                 {
                     await UpdateListMessage();
                     lastCheckInChannel = BotState.CheckInChannelId;

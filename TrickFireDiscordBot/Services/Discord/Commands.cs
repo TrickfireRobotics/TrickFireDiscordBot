@@ -29,81 +29,20 @@ public static class Commands
         [Description("The message id to use as the checkin message")]
         ulong? messageId = null)
     {
-        // Guild is not null because it cannot be called outsides guilds
-        DiscordPermissions permissions = channel.PermissionsFor(context.Guild!.CurrentMember);
-        if (!permissions.HasPermission(DiscordPermission.SendMessages) || !permissions.HasPermission(DiscordPermission.ViewChannel))
+        (DiscordMessage? message, string? error) = await CheckChannelAndMessagePerms(
+            channel, messageId, context.Guild!
+        );
+        if (error is not null)
         {
-            await context.RespondAsync("Bot does not have permission to send messages in that channel");
+            await context.RespondAsync(error);
             return;
-        }
-        else if (!permissions.HasPermission(DiscordPermission.ReadMessageHistory))
-        {
-            await context.RespondAsync("Bot does not have permission to read messages in that channel");
-            return;
-        }
-
-        // Validate message
-        DiscordMessage? message = null;
-        if (messageId is not null)
-        {
-            // Try to fetch message
-            try
-            {
-                message = await channel.GetMessageAsync(messageId.Value);
-            }
-            catch (NotFoundException) { }
-            catch (UnauthorizedException) 
-            {
-                await context.RespondAsync("Improper permissions to get message");
-            }
-
-            if (message is null)
-            {
-                await context.RespondAsync("Message not found");
-                return;
-            }
-
-            // Fail if bot isn't message author or message channel doesn't match
-            // passed in channel
-            if (message.Author?.Id != context.Client.CurrentUser.Id)
-            {
-                await context.RespondAsync("Message must have been sent by bot");
-                return;
-            }
-            else if (message.ChannelId != channel.Id)
-            {
-                await context.RespondAsync("Message must be sent in same channel as inputted");
-                return;
-            }
         }
 
         // Delete old message
         BotState state = context.ServiceProvider.GetRequiredService<BotState>();
-        try
-        {
-            if (message is null || message.Id != state.ListMessageId)
-            {
-                DiscordChannel oldChannel = await context.Guild!.GetChannelAsync(state.CheckInChannelId);
-                DiscordMessage oldMessage = await oldChannel.GetMessageAsync(state.ListMessageId);
-                await oldMessage.DeleteAsync();
-            }
-        }
-        catch (NotFoundException) { }
-        catch (UnauthorizedException) { }
-
-        // Update settings in config
-        if (state.CheckInChannelId != channel.Id)
-        {
-            state.CheckInChannelId = channel.Id;
-        }
-        if (message is not null && state.ListMessageId != message.Id)
-        {
-            state.ListMessageId = message.Id;
-        }
-        else if (message is null)
-        {
-            state.ListMessageId = 0;
-        }
+        (state.CheckInChannelId, state.ListMessageId) = await DeleteOldChannelMessageAndUpdate(
+            channel, state.CheckInChannelId, message, state.ListMessageId, context.Guild!
+        );
         state.Save();
 
         // Return success
@@ -120,16 +59,10 @@ public static class Commands
         [Description("The channel to send debug messages to")]
         DiscordChannel channel)
     {
-        // Guild is not null because it cannot be called outsides guilds
-        DiscordPermissions permissions = channel.PermissionsFor(context.Guild!.CurrentMember);
-        if (!permissions.HasPermission(DiscordPermission.SendMessages) || !permissions.HasPermission(DiscordPermission.ViewChannel))
+        string? res = CheckChannelPerms(channel, context.Guild!);
+        if (res is not null)
         {
-            await context.RespondAsync("Bot does not have permission to send messages in that channel");
-            return;
-        }
-        else if (!permissions.HasPermission(DiscordPermission.ReadMessageHistory))
-        {
-            await context.RespondAsync("Bot does not have permission to read messages in that channel");
+            await context.RespondAsync(res);
             return;
         }
 
@@ -245,6 +178,129 @@ public static class Commands
             builder.WithContent($"Checked out. " + GetCheckOutMessage());
         }
         await interaction.CreateFollowupMessageAsync(builder);
+    }
+
+    /// <summary>
+    /// Checks the given channel for the read message history and send message
+    /// permissions and checks if the given message id exists, is sent by the
+    /// bot, and was sent in the same channel as given.
+    /// </summary>
+    /// <param name="channel">The channel to check</param>
+    /// <param name="messageId">The message id to check or null</param>
+    /// <param name="guild">The guild to check in</param>
+    /// <returns>A tuple of the found message and an error</returns>
+    private static async Task<(DiscordMessage? message, string? error)> CheckChannelAndMessagePerms(
+        DiscordChannel channel, 
+        ulong? messageId, 
+        DiscordGuild guild
+    ) {
+        string? res = CheckChannelPerms(channel, guild);
+        if (res is not null)
+        {
+            return (null, res);
+        }
+
+        // Validate message
+        DiscordMessage? message = null;
+        if (messageId is not null)
+        {
+            // Try to fetch message
+            try
+            {
+                message = await channel.GetMessageAsync(messageId.Value);
+            }
+            catch (NotFoundException) { }
+            catch (UnauthorizedException)
+            {
+                return (null, "Improper permissions to get message");
+            }
+
+            if (message is null)
+            {
+                return (null, "Message not found");
+            }
+
+            // Fail if bot isn't message author or message channel doesn't match
+            // passed in channel
+            if (message.Author?.Id != guild.CurrentMember.Id)
+            {
+                return (message, "Message must have been sent by bot");
+            }
+            else if (message.ChannelId != channel.Id)
+            {
+                return (message, "Message must be sent in same channel as inputted");
+            }
+        }
+
+        return (message, null);
+    }
+
+    /// <summary>
+    /// Checks the given channel for the read message history and send message
+    /// permissions.
+    /// </summary>
+    /// <param name="channel">The channel to check</param>
+    /// <param name="guild">The guild to check in</param>
+    /// <returns>An error message or null</returns>
+    private static string? CheckChannelPerms(DiscordChannel channel, DiscordGuild guild)
+    {
+        // Guild is not null because it cannot be called outsides guilds
+        DiscordPermissions permissions = channel.PermissionsFor(guild.CurrentMember);
+        if (!permissions.HasPermission(DiscordPermission.SendMessages) || !permissions.HasPermission(DiscordPermission.ViewChannel))
+        {
+            return "Bot does not have permission to send messages in that channel";
+        }
+        else if (!permissions.HasPermission(DiscordPermission.ReadMessageHistory))
+        {
+            return "Bot does not have permission to read messages in that channel";
+        }
+        return null;
+    }
+
+    
+    /// <summary>
+    /// Deletes the current message if it is out of date, then does some checks
+    /// to figure out the updated channel and message ids.
+    /// </summary>
+    /// <param name="channel">The channel updating to</param>
+    /// <param name="currChannelId">The current channel id in state</param>
+    /// <param name="message">The message updating to</param>
+    /// <param name="currMessageId">The current message id in state</param>
+    /// <param name="guild">The guild to check in</param>
+    /// <returns>The new channel and message ids</returns>
+    private static async Task<(ulong newChannelId, ulong newMessageId)> DeleteOldChannelMessageAndUpdate(
+        DiscordChannel channel,
+        ulong currChannelId,
+        DiscordMessage? message,
+        ulong currMessageId,
+        DiscordGuild guild
+    ) {
+
+        // Delete old message
+        try
+        {
+            if (message is null || message.Id != currMessageId)
+            {
+                DiscordChannel oldChannel = await guild.GetChannelAsync(currChannelId);
+                DiscordMessage oldMessage = await oldChannel.GetMessageAsync(currMessageId);
+                await oldMessage.DeleteAsync();
+            }
+        }
+        catch (NotFoundException) { }
+        catch (UnauthorizedException) { }
+
+        // Update settings in config
+        ulong retChannelId = currChannelId != channel.Id ? channel.Id : currChannelId;
+        if (message is not null && currMessageId != message.Id)
+        {
+            return (retChannelId, message.Id);
+        }
+        else if (message is null)
+        {
+            return (retChannelId, 0);
+        }
+
+        return (retChannelId, currMessageId);
     }
 
     // Make a fake weighted random using range checking
