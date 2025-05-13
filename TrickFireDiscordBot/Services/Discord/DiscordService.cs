@@ -12,24 +12,15 @@ using System.Reflection;
 
 namespace TrickFireDiscordBot.Services.Discord;
 
-public class DiscordService : IHostedService, IAutoRegisteredService, IEventHandler<SessionCreatedEventArgs>
+public class DiscordService(DiscordClient client, IOptions<DiscordServiceOptions> options) : IHostedService, IAutoRegisteredService, IEventHandler<SessionCreatedEventArgs>
 {
     /// <summary>
     /// The client associated with the bot.
     /// </summary>
-    public DiscordClient Client { get; }
+    public DiscordClient Client { get; } = client;
 
-    public DiscordServiceOptions Options { get; }
-    public DiscordGuild MainGuild { get; }
-
-
-    public DiscordService(DiscordClient client, IOptions<DiscordServiceOptions> options)
-    {
-        Client = client;
-        Options = options.Value;
-        MainGuild = client.GetGuildAsync(options.Value.MainGuildId).GetAwaiter().GetResult();
-    }
-
+    public DiscordServiceOptions Options { get; } = options.Value;
+    public DiscordGuild MainGuild { get; } = client.GetGuildAsync(options.Value.MainGuildId).GetAwaiter().GetResult();
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -52,7 +43,7 @@ public class DiscordService : IHostedService, IAutoRegisteredService, IEventHand
     public static void Register(IHostApplicationBuilder builder)
     {
         builder.Services
-            .AddDiscordClient(builder.Configuration["BOT_TOKEN"]!, DiscordIntents.GuildMembers)
+            .AddDiscordClient(builder.Configuration["BOT_TOKEN"]!, DiscordIntents.GuildMembers | DiscordIntents.Guilds)
             .Configure<DiscordConfiguration>(builder.Configuration.GetSection("DiscordBotConfig"))
             .AddCommandsExtension((_, extension) =>
             {

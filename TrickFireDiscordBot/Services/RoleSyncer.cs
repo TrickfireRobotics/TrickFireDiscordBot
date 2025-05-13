@@ -19,20 +19,15 @@ public class RoleSyncer(
     : NotionWebhookService<RoleSyncer.MemberPage>(logger, listener), IAutoRegisteredService
 {
     public override string WebhookEndpoint => "/members";
+    private IReadOnlyDictionary<ulong, DiscordRole> Roles => discordService.MainGuild.Roles;
 
     private readonly Regex _technicalLeadRegex = new(options.Value.TechnicalLeadRegex);
 
-    private readonly Dictionary<string, DiscordRole> _discordRoleCache = [];
     private string? _teamPageNamePropertyId = null;
 
     /// <inheritdoc/>
     public override Task StartAsync(CancellationToken cancellationToken)
     {
-        foreach (DiscordRole role in discordService.MainGuild.Roles.Values)
-        {
-            _discordRoleCache.Add(role.Name, role);
-        }
-
         return base.StartAsync(cancellationToken);
     }
 
@@ -70,7 +65,7 @@ public class RoleSyncer(
         }
 
         // Get all discord users
-        DiscordRole inactiveRole = _discordRoleCache.Values.First(role => role.Id == options.Value.InactiveRoleId);
+        DiscordRole inactiveRole = Roles[options.Value.InactiveRoleId];
         await foreach (DiscordMember member in discordService.MainGuild.GetAllMembersAsync())
         {
             // Filter members already processed
@@ -131,7 +126,7 @@ public class RoleSyncer(
     private async Task<DiscordMember?> SyncRoles(DiscordMember? member = null, MemberPage? page = null, bool dryRun = true)
     {
         HashSet<DiscordRole> newRoles = [];
-        DiscordRole inactiveRole = _discordRoleCache.Values.First(role => role.Id == options.Value.InactiveRoleId);
+        DiscordRole inactiveRole = Roles[options.Value.InactiveRoleId];
 
         // If only member is given, mark inactive
         if (page == null && member is not null)
@@ -294,7 +289,7 @@ public class RoleSyncer(
 
             if (_technicalLeadRegex.IsMatch(positionName))
             {
-                roles.Add(_discordRoleCache.Values.First(role => role.Id == options.Value.TechnicalLeadRoleId));
+                roles.Add(Roles[options.Value.TechnicalLeadRoleId]);
             }
 
             // Remove team suffix to make roles a little easier to read
@@ -389,7 +384,8 @@ public class RoleSyncer(
     /// <returns>The role with a matching name, or null</returns>
     private DiscordRole? GetRoleOrDefault(string roleName)
     {
-        if (!_discordRoleCache.TryGetValue(roleName, out DiscordRole? role))
+        DiscordRole? role = Roles.Values.FirstOrDefault(r => r.Name ==  roleName);
+        if (role is null)
         {
             logger.LogWarning("Could not find role with name: {}", roleName);
             messageLogger.LogWarning("Could not find role with name: {}", roleName);
