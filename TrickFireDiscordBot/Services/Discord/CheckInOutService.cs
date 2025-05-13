@@ -161,7 +161,7 @@ public class CheckInOutService
             .WithTitle("Members in the Shop")
             .WithFooter("Made by Kyler 😎")
             .WithTimestamp(DateTime.Now)
-            .WithColor(new DiscordColor("2ecc71"));
+            .WithColor(new DiscordColor("19a24a"));
 
         StringBuilder sb = new(
             "A list of members currently in the shop (INV-011), kept up to date.\n" +

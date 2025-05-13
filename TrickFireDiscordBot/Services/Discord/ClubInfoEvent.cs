@@ -25,7 +25,7 @@ public class ClubInfoEvent(IOptions<ClubInfoEventOptions> options, BotState botS
                 new DiscordLinkButtonComponent("https://www.notion.so/trickfire/1301fd41ff5b81f28a91f837f0ea28a4?v=1301fd41ff5b81ba9807000c532159af", "Teams"),
                 new DiscordLinkButtonComponent("https://www.notion.so/trickfire/1481fd41ff5b80dd8b9df498ae5dbd6e?v=1481fd41ff5b8186b948000c5531b0c0", "Wiki")
             ])
-        ], color: new DiscordColor("2ecc71")));
+        ], color: new DiscordColor("19a24a")));
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {

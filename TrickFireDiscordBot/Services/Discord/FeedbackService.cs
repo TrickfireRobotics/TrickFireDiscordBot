@@ -25,7 +25,7 @@ public class FeedbackService(IOptions<FeedbackServiceOptions> options, BotState 
                 OpenModalInteractionId,
                 "Submit Feedback"
             ) ])
-        ], color: new DiscordColor("2ecc71")));
+        ], color: new DiscordColor("19a24a")));
 
     private static readonly DiscordInteractionResponseBuilder modal = new DiscordInteractionResponseBuilder()
         .EnableV2Components()
