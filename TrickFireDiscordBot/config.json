@@ -22,7 +22,7 @@
     "DisciplinesPropertyName": "Discipline(s)",
     "TeamsPropertyName": "Teams",
     "TechnicalLeadRoleId": 1314341103603810384,
-    "TechnicalLeadRegex": "(.* ((Team Lead)|(Mission Director)))|(System Integrator)",
+    "TechnicalLeadRegex": "(.* ((Team Lead)|(Mission Director)))|(Chief Engineer)",
     "InactiveRoleId": 1183543002036174918,
     "SafeRoleIds": [ 593164234905354261, 593275442408980550 ],
     "IgnoredRoleIds": [ 826190759199375372, 541739283942473729 ],
