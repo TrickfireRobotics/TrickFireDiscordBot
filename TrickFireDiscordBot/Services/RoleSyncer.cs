@@ -165,7 +165,7 @@ public class RoleSyncer(
         ));
 
         string logString = string.Join("`, `", newRoles.Select(role => role.Name));
-        bool hasChanged = newRoles.SetEquals(member.Roles);
+        bool hasChanged = !newRoles.SetEquals(member.Roles);
         logger.LogDebug(
             "(dry run: `{}`, changed?: `{}`) Roles for user `{}` (`{}`): `{}`",
             dryRun,
