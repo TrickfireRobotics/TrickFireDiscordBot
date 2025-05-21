@@ -277,7 +277,7 @@ public class RoleSyncer(
         }
 
         // Get roles for teams
-        if (activeRole is not null)
+        if (activeRole is null)
         {
             foreach (DiscordRole role in await GetTeams(page))
             {
