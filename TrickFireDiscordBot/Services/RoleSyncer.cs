@@ -290,7 +290,8 @@ public class RoleSyncer(
                 continue;
             }
 
-            if (_technicalLeadRegex.IsMatch(positionName))
+            // Give tech lead role if they're tech lead and active
+            if (_technicalLeadRegex.IsMatch(positionName) && activeRole is null)
             {
                 roles.Add(Roles[options.Value.TechnicalLeadRoleId]);
             }
