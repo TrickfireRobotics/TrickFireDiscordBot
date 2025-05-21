@@ -277,9 +277,12 @@ public class RoleSyncer(
         }
 
         // Get roles for teams
-        foreach (DiscordRole role in await GetTeams(page))
+        if (activeRole is not null)
         {
-            roles.Add(role);
+            foreach (DiscordRole role in await GetTeams(page))
+            {
+                roles.Add(role);
+            }
         }
 
         // Get position roles
