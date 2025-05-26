@@ -26,7 +26,7 @@
     "InactiveRoleId": 1183543002036174918,
     "SafeRoleIds": [ 593164234905354261, 593275442408980550 ],
     "IgnoredRoleIds": [ 826190759199375372, 541739283942473729 ],
-    "InactiveMessage": "Hi! You've recently been marked inactive, likely for one of the following reasons:\n- not showing up to meetings\n- not responding to pings\/messages\n- failing to checkin often enough\n- not following through on commitments\n- you are a bad person\n- you were caught wearing a fake beard\n\nThis means you are no longer considered part of any of TrickFire's teams and are not allowed access to many of our channels.\n\n'If you believe that this is a mistake or would like to become active again, please reach out to the team lead or a business team member.\n\nBest wishes,\nthe Trickfire admin team"
+    "InactiveMessage": "Hi! You've recently been marked inactive, likely for one of the following reasons:\n- not showing up to meetings\n- not responding to pings\/messages\n- failing to checkin often enough\n- not following through on commitments\n- you are a bad person\n- you were caught wearing a fake beard\n\nThis means you are no longer considered part of any of TrickFire's teams and are not allowed access to many of our channels.\n\nThink this was a mistake or want to return? **We want you back!** If you would like to become active again, please reach out to your team lead or a business team member.\n\nBest wishes,\nthe Trickfire admin team"
   },
   "BotStateOptions": {
     "FileLocation": "state.json"
