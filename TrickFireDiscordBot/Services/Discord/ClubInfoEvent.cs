@@ -17,13 +17,15 @@ public class ClubInfoEvent(IOptions<ClubInfoEventOptions> options, BotState botS
             ),
             new DiscordTextDisplayComponent(options.Value.ClubInfoMessage),
             new DiscordSeparatorComponent(divider: true),
-            new DiscordTextDisplayComponent("Below are some nifty links for everyone"),
             new DiscordActionRowComponent([
                 new DiscordLinkButtonComponent("https://www.notion.so/trickfire/invite/d3549ba6387d94a9454679a4082d848706d1dd29", "Notion"),
                 new DiscordLinkButtonComponent("https://schej.it/e/7aDA2", "Schej"),
-                new DiscordLinkButtonComponent("https://www.notion.so/trickfire/1301fd41ff5b81059fc6e6461d7bb25b?v=1301fd41ff5b813487ee000c80faa461", "Calendar"),
+                new DiscordLinkButtonComponent("https://www.notion.so/trickfire/1301fd41ff5b81059fc6e6461d7bb25b?v=1301fd41ff5b813487ee000c80faa461", "Calendar")
+            ]),
+            new DiscordActionRowComponent([
                 new DiscordLinkButtonComponent("https://www.notion.so/trickfire/1301fd41ff5b81f28a91f837f0ea28a4?v=1301fd41ff5b81ba9807000c532159af", "Teams"),
-                new DiscordLinkButtonComponent("https://www.notion.so/trickfire/1481fd41ff5b80dd8b9df498ae5dbd6e?v=1481fd41ff5b8186b948000c5531b0c0", "Wiki")
+                new DiscordLinkButtonComponent("https://www.notion.so/trickfire/1481fd41ff5b80dd8b9df498ae5dbd6e?v=1481fd41ff5b8186b948000c5531b0c0", "Wiki"),
+                new DiscordLinkButtonComponent("https://www.notion.so/trickfire/1eb1fd41ff5b80b7a96adeaa5aea7655", "Task Creator")
             ])
         ], color: new DiscordColor("19a24a")));
 
