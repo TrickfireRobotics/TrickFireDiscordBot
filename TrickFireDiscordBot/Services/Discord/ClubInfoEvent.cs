@@ -17,6 +17,7 @@ public class ClubInfoEvent(IOptions<ClubInfoEventOptions> options, BotState botS
             ),
             new DiscordTextDisplayComponent(options.Value.ClubInfoMessage),
             new DiscordSeparatorComponent(divider: true),
+            new DiscordTextDisplayComponent("Below are some nifty links for everyone"),
             new DiscordActionRowComponent([
                 new DiscordLinkButtonComponent("https://www.notion.so/trickfire/invite/d3549ba6387d94a9454679a4082d848706d1dd29", "Notion"),
                 new DiscordLinkButtonComponent("https://schej.it/e/7aDA2", "Schej"),
